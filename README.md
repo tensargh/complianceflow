@@ -2,7 +2,8 @@
 
 A multi-tenant SaaS platform for compliance declaration management, built with microservices architecture on Azure.
 
-**Repository:** https://github.com/tensargh/complianceflow/
+**Repository:** https://github.com/tensargh/complianceflow/  
+**Jira Board:** https://timensor.atlassian.net/jira/software/projects/ECS/boards/1
 
 ## 🚀 Quick Start
 
@@ -40,13 +41,14 @@ docker-compose up -d
 
 ## 📋 What You Have
 
-### Documents Created
-- **Tech Stack Definition** (`docs/Tech_Stack_Definition.md`): Final technology choices (Python, FastAPI, PostgreSQL, Kafka, React)
-- **Master PRD** (`docs/prds/PRD_ComplianceFlow.md`): Complete platform requirements
-- **8 Service PRDs** (`docs/prds/`): Individual microservice specifications
-- **AI Workflow Guide** (`docs/AI_Assisted_Development_Workflow.md`): Complete SDLC with AI integration
-- **Tool Stack Guide** (`docs/Recommended_Tool_Stack.md`): Free tier tools and MCP setup
-- **Project Template** (`project-template/`): Complete development structure with examples
+### Documentation
+- **Tech Stack Definition** ([docs/Tech_Stack_Definition.md](docs/Tech_Stack_Definition.md)): Technology choices and rationale
+- **Master PRD** ([docs/prds/PRD_ComplianceFlow.md](docs/prds/PRD_ComplianceFlow.md)): Complete platform requirements
+- **Service PRDs** ([docs/prds/](docs/prds/)): Individual microservice specifications (8 services)
+- **AI Workflow Guide** ([docs/AI_Assisted_Development_Workflow.md](docs/AI_Assisted_Development_Workflow.md)): AI-assisted SDLC
+- **MCP Setup Guide** ([docs/MCP_Setup_Guide.md](docs/MCP_Setup_Guide.md)): GitHub & Jira MCP integration
+- **License Compliance** ([docs/License_Compliance.md](docs/License_Compliance.md)): Third-party dependency tracking
+- **Project Template** ([project-template/](project-template/)): Complete development structure with examples
 
 ### Infrastructure
 - **Multi-environment Terraform**: Dev, staging, production
@@ -108,17 +110,17 @@ uvicorn app.main:app --reload
 ## 📚 Key Files to Review
 
 ### Platform Level
-- `docs/Tech_Stack_Definition.md` - Technology decisions and rationale
-- `docs/prds/PRD_ComplianceFlow.md` - Complete platform requirements
-- `docs/AI_Assisted_Development_Workflow.md` - AI-assisted SDLC guide
-- `docs/Recommended_Tool_Stack.md` - Tool selection (Jira, GitHub, GitHub Actions)
-- `project-template/README.md` - Template usage guide
+- [docs/Tech_Stack_Definition.md](docs/Tech_Stack_Definition.md) - Technology decisions and rationale
+- [docs/prds/PRD_ComplianceFlow.md](docs/prds/PRD_ComplianceFlow.md) - Complete platform requirements
+- [docs/AI_Assisted_Development_Workflow.md](docs/AI_Assisted_Development_Workflow.md) - AI-assisted SDLC guide
+- [docs/MCP_Setup_Guide.md](docs/MCP_Setup_Guide.md) - MCP integration (GitHub & Jira)
+- [project-template/README.md](project-template/README.md) - Template usage guide
 
 ### Service Level (in template)
-- `project-template/PROJECT_STRUCTURE.md` - Complete file organization
-- `project-template/.cursorrules` - AI development guidelines
-- `project-template/docker-compose.yml` - Local development environment
-- `project-template/shared/events/` - Event schemas and patterns
+- [project-template/PROJECT_STRUCTURE.md](project-template/PROJECT_STRUCTURE.md) - Complete file organization
+- [project-template/.cursorrules](project-template/.cursorrules) - AI development guidelines
+- [project-template/docker-compose.yml](project-template/docker-compose.yml) - Local development environment
+- [project-template/shared/events/](project-template/shared/events/) - Event schemas and patterns
 
 ## 🔧 Customization
 
@@ -181,13 +183,13 @@ uvicorn app.main:app --reload
 
 ## 📈 Next Steps
 
-See `TASKLIST.md` for detailed implementation tasks.
+See [TASKLIST.md](TASKLIST.md) for detailed implementation tasks.
 
 **Quick Start Path:**
-1. ✅ **Setup Tools** - Jira & GitHub configured (see `docs/MCP_Setup_Guide.md`)
-2. ✅ **Setup MCP** - GitHub & Atlassian MCP configured in Cursor
-3. **Review Docs** - Read AI workflow guide and tech stack definition
-4. **Copy Template** - Use project-template as starting point
+1. ✅ **Setup Tools** - [Jira](https://timensor.atlassian.net/jira/software/projects/ECS/boards/1) & [GitHub](https://github.com/tensargh/complianceflow) configured
+2. ✅ **Setup MCP** - GitHub & Atlassian MCP configured (see [MCP Setup Guide](docs/MCP_Setup_Guide.md))
+3. **Review Docs** - Read [AI workflow guide](docs/AI_Assisted_Development_Workflow.md) and [tech stack](docs/Tech_Stack_Definition.md)
+4. **Copy Template** - Use [project-template](project-template/) as starting point
 5. **Begin Development** - Start with User Service following patterns
 
 **For Consulting Portfolio:**
@@ -238,13 +240,18 @@ complianceflow/                       # Single GitHub repository
 ## 🆘 Support
 
 ### Key Documentation
-- **Getting Started:** This README + `TASKLIST.md`
-- **PRDs:** `/docs/prds/` (Master + 8 service PRDs)
-- **Tech Stack:** `/docs/Tech_Stack_Definition.md`
-- **AI Workflow:** `/docs/AI_Assisted_Development_Workflow.md`
-- **Tool Setup:** `/docs/Recommended_Tool_Stack.md` + `/docs/MCP_Setup_Guide.md`
-- **MCP Setup:** ✅ GitHub & Atlassian MCP configured (see `.cursor/README.md`)
-- **Examples:** `/project-template/` (reference patterns)
+- **Getting Started:** This README + [TASKLIST.md](TASKLIST.md)
+- **PRDs:** [docs/prds/](docs/prds/) (Master + 8 service PRDs)
+- **Tech Stack:** [docs/Tech_Stack_Definition.md](docs/Tech_Stack_Definition.md)
+- **AI Workflow:** [docs/AI_Assisted_Development_Workflow.md](docs/AI_Assisted_Development_Workflow.md)
+- **MCP Setup:** [docs/MCP_Setup_Guide.md](docs/MCP_Setup_Guide.md) + [.cursor/README.md](.cursor/README.md)
+- **License Tracking:** [docs/License_Compliance.md](docs/License_Compliance.md)
+- **Examples:** [project-template/](project-template/) (reference patterns)
+
+### Tools & Resources
+- **GitHub Repository:** https://github.com/tensargh/complianceflow/
+- **Jira Board:** https://timensor.atlassian.net/jira/software/projects/ECS/boards/1
+- **MCP Server:** GitHub MCP + Official Atlassian Remote MCP Server
 
 ---
 
