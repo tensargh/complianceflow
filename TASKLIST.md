@@ -31,7 +31,7 @@
   - [x] Create public repository: `complianceflow` (PUBLIC = unlimited Actions!)
   - [x] Initialize with current structure (docs, project-template)
   - [x] Add .gitignore (Python, Node, Terraform)
-  - [ ] Add LICENSE (MIT or appropriate)
+  - [x] Add LICENSE (Proprietary - All Rights Reserved)
   - [ ] Enable GitHub Issues
   - [ ] Enable GitHub Projects
   - [ ] Setup path-based workflows for each service

@@ -1,0 +1,55 @@
+# ComplianceFlow Development Rules
+
+## License Compliance - CRITICAL
+
+### GPL Prohibition
+- **NEVER** suggest, recommend, or use libraries licensed under:
+  - GNU General Public License (GPL) v2 or v3
+  - GNU Lesser General Public License (LGPL)
+  - GNU Affero General Public License (AGPL)
+  - Any other copyleft licenses that require derivative works to be open-sourced
+
+### License Evaluation Process
+Before recommending ANY third-party library or dependency:
+1. **CHECK the license** - Look up the library's license explicitly
+2. **VERIFY compatibility** - Ensure it's compatible with proprietary software
+3. **DOCUMENT the license** - Note the license type when suggesting packages
+
+### Acceptable Licenses (Non-Exhaustive List)
+✅ MIT License
+✅ Apache License 2.0
+✅ BSD Licenses (2-Clause, 3-Clause)
+✅ ISC License
+✅ Python Software Foundation License
+✅ Unlicense / Public Domain
+
+### Questionable/Research Required
+⚠️ Mozilla Public License (MPL) - File-level copyleft, evaluate carefully
+⚠️ Eclipse Public License (EPL) - Weak copyleft, evaluate carefully
+⚠️ Creative Commons licenses - Depends on variant
+
+### Always Rejected
+❌ GPL (any version)
+❌ LGPL (any version)
+❌ AGPL (any version)
+❌ Any license requiring derivative works to be open-sourced
+
+### When Suggesting Dependencies
+When recommending a package, library, or framework:
+- State: "Package X is licensed under [LICENSE]"
+- If unsure: "I'll check the license for Package X"
+- If GPL/copyleft: "Package X uses GPL/copyleft license - we need an alternative"
+
+### Documentation Requirements
+- Add license information to requirements.txt comments when relevant
+- Document any license concerns in ADRs (Architecture Decision Records)
+- Track all dependencies and their licenses
+
+## Code Ownership
+- All code in this repository is proprietary
+- Copyright holder has exclusive rights
+- Only the copyright holder may grant reuse permissions
+
+## Reminder
+This project is **proprietary software**. License compliance is not optional—it's mandatory to protect intellectual property rights.
+
