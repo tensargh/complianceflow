@@ -64,9 +64,374 @@ If this were an **existing platform** rather than greenfield:
 
 ---
 
-## Workflow Stages
+## 🔄 Kanban Workflow with AI Integration
 
-### Stage 0: Requirements Foundation (Pre-Epic)
+### Methodology Overview
+
+ComplianceFlow follows **Real Kanban** principles with strict Work-In-Progress (WIP) limits and continuous flow. AI assistance is integrated at every stage to maximize throughput while maintaining quality.
+
+### Kanban Board Structure
+
+```
+┌─────────────┬──────────────┬───────────┬─────────────┬──────────────┬──────┐
+│   Backlog   │  Refinement  │   Ready   │ In Progress │    Review    │ Done │
+│   (No WIP)  │   WIP: 3-5   │ (Target   │   WIP: 2-3  │   WIP: 2-3   │      │
+│             │              │   15-20   │  per dev)   │              │      │
+│             │              │  stories) │             │              │      │
+└─────────────┴──────────────┴───────────┴─────────────┴──────────────┴──────┘
+```
+
+### Stage Flow with AI Assistance
+
+#### 1. Backlog (Product Owner)
+**WIP Limit:** None (raw stories)  
+**AI Assistance:** 86% time savings
+
+**Activities:**
+- PO creates stories conversationally with AI
+- AI generates Gherkin acceptance criteria
+- Stories created directly in Jira via MCP
+- Rough story point estimates
+- Dependencies identified
+
+**Output:** Stories with acceptance criteria but may lack technical detail
+
+**Example:**
+```
+"As a Platform Support, I want to provision new tenants,
+so that customers can be onboarded."
+
+AI adds: 4 Gherkin scenarios, technical notes, DoD checklist
+Time: 2-3 minutes per story vs 15-20 minutes traditional
+```
+
+---
+
+#### 2. Refinement (Tech Lead / Senior Developers)
+**WIP Limit:** 3-5 stories  
+**AI Assistance:** 40-60% time savings
+
+**Who:** Senior developers, tech leads, architects
+
+**Activities with AI:**
+- Pull story from backlog
+- **AI creates architecture diagrams** from story description
+- **AI generates API specifications** from requirements
+- **AI suggests technical approach** based on existing patterns
+- **AI breaks story into implementation tasks** with clear steps
+- **AI identifies edge cases** not in original acceptance criteria
+- Senior validates and refines AI output
+- Add detailed technical notes
+- Finalize story point estimate
+
+**AI-Assisted Refinement Process:**
+```
+Senior: "Let's refine ECS-32 (JWT Token Implementation). 
+Generate implementation tasks and identify edge cases."
+
+AI: *Suggests:*
+1. Create JWT utility functions
+2. Implement token generation
+3. Implement token validation
+4. Add token refresh logic
+5. Handle key rotation
+6. Edge cases: expired tokens, invalid signatures, missing claims
+
+Senior: *Reviews, adjusts, approves - moves to Ready*
+```
+
+**Output:** Implementable stories with clear technical approach
+
+**WIP Discipline:**
+- Don't pull new story until current one is refined
+- Target: Each senior refines 3-5 stories per day
+- Maintains 2-3 weeks of "Ready" stories
+
+---
+
+#### 3. Ready (Waiting for Development)
+**WIP Limit:** Target 15-20 stories (2-3 weeks of work)  
+**AI Assistance:** Stories are AI-enhanced and ready to implement
+
+**Characteristics:**
+- ✅ Comprehensive acceptance criteria (Gherkin)
+- ✅ Technical approach documented
+- ✅ Implementation tasks listed
+- ✅ Edge cases identified
+- ✅ Dependencies resolved
+- ✅ Test scenarios clear
+- ✅ DoD checklist complete
+
+**Quality Gate:** Stories cannot move to "In Progress" unless they meet all criteria
+
+---
+
+#### 4. In Progress (Developers)
+**WIP Limit:** 2-3 stories per developer  
+**AI Assistance:** 40-70% time savings (varies by task complexity)
+
+**Progression Model:**
+
+##### 4a. Day 1 - Junior/Mid Developers with Cursor
+**Who:** All developers using Cursor as AI pair programmer
+
+**Process:**
+```
+1. Pull Ready story from board
+2. Read acceptance criteria and technical notes
+3. Use Cursor to implement:
+   - "Generate SQLAlchemy model for User entity from story ECS-29"
+   - "Implement JWT token generation per ECS-32 acceptance criteria"
+   - "Write unit tests for these scenarios: [paste Gherkin]"
+4. Validate AI output
+5. Run tests locally
+6. Create PR
+7. Move to Review
+```
+
+**AI Value:**
+- Boilerplate code generated instantly
+- Tests written from acceptance criteria
+- Code follows established patterns
+- Reduces implementation time by 40-60%
+
+**WIP Discipline:**
+- Limit 2-3 stories per developer
+- Focus on completion, not starting
+- Blocked stories don't count toward WIP
+
+##### 4b. Later - AI Agent Handling Simple Tasks
+**Who:** AI agents with human oversight
+
+**Suitable Tasks:**
+- ✅ Bug fixes with clear reproduction steps
+- ✅ Simple CRUD endpoint implementation
+- ✅ Test case additions
+- ✅ Documentation updates
+- ✅ Code formatting/linting fixes
+- ✅ Dependency updates
+
+**Agent Workflow:**
+```
+1. Agent monitors "Ready" column for flagged stories
+2. Agent analyzes story, acceptance criteria, codebase
+3. Agent implements changes
+4. Agent writes tests
+5. Agent creates PR
+6. **Human reviews rigorously** (see Review stage)
+```
+
+**Quality Gates:**
+- Agent PRs NEVER auto-merge
+- Human approval mandatory
+- Complex stories remain human-implemented
+- Agent learns from human corrections
+
+---
+
+#### 5. Review (Senior Developers / Tech Leads)
+**WIP Limit:** 2-3 PRs per reviewer  
+**AI Assistance:** 30-50% time savings
+
+**Review Process with AI:**
+
+**For Human-Written Code:**
+```
+Reviewer: "Analyze this PR for ECS-32. Check against acceptance criteria
+and identify potential issues."
+
+AI: *Reviews code structure, tests, patterns*
+*Highlights: Missing edge case for expired tokens in test suite*
+
+Reviewer: *Validates AI findings, requests changes, approves*
+```
+
+**For Agent-Written Code (Rigorous Review):**
+```
+Reviewer: "This PR is from an AI agent. Perform thorough review:
+- Does it exactly match acceptance criteria?
+- Are all edge cases covered?
+- Is security properly handled?
+- Are tests comprehensive?
+- Any logic errors or hallucinations?"
+
+AI: *Deep analysis with heightened scrutiny*
+
+Reviewer: *Extra careful validation, often requests changes*
+```
+
+**Review Checklist (Enhanced for Agent PRs):**
+- ✅ Code matches acceptance criteria exactly
+- ✅ All Gherkin scenarios covered by tests
+- ✅ No security vulnerabilities
+- ✅ Performance requirements met
+- ✅ Error handling comprehensive
+- ✅ Code style consistent
+- ✅ Documentation updated
+- ✅ No AI hallucinations or logic errors (for agent code)
+
+**WIP Discipline:**
+- Limit 2-3 active reviews per person
+- Reviews completed within 24 hours
+- Blocked reviews escalated immediately
+
+---
+
+#### 6. Done
+**No WIP Limit**  
+**Automated:** CI/CD deploys to test environment
+
+**Exit Criteria:**
+- PR merged
+- Tests passing
+- Deployed to test
+- Acceptance criteria verified
+- Story marked complete in Jira
+
+---
+
+### Kanban Metrics (Measured and Improved)
+
+**Flow Metrics:**
+- **Cycle Time:** Story enters "In Progress" → Done
+- **Lead Time:** Story created → Done
+- **Throughput:** Stories completed per week
+- **WIP:** Current work in progress by stage
+
+**AI Impact Metrics:**
+- **Refinement Time:** With vs without AI
+- **Implementation Time:** With vs without AI
+- **Review Time:** With vs without AI
+- **Defect Rate:** Human vs agent implementations
+- **Rework Rate:** Stories requiring significant changes
+
+**Target Improvements:**
+- 50% reduction in cycle time
+- 2x throughput increase
+- Maintain or improve quality
+- Higher developer satisfaction
+
+---
+
+### WIP Limit Rationale
+
+**Refinement (3-5):**
+- Prevents seniors from over-committing
+- Ensures thorough technical analysis
+- AI makes refinement fast, don't need large WIP
+
+**In Progress (2-3 per dev):**
+- Forces focus on completion
+- Reduces context switching
+- One "main" story, 1-2 smaller stories
+- Blocked story doesn't count against limit
+
+**Review (2-3 per reviewer):**
+- Ensures timely feedback
+- AI-assisted review is fast
+- Prevents bottlenecks
+- Agent PRs may need extra scrutiny
+
+---
+
+### Story Lifecycle with AI
+
+```mermaid
+stateDiagram-v2
+    [*] --> Backlog: PO creates (AI-assisted)
+    Backlog --> Refinement: Senior pulls
+    Refinement --> Backlog: Needs PO clarification
+    Refinement --> Ready: Technically detailed (AI diagrams/tasks)
+    Ready --> InProgress: Dev pulls
+    InProgress --> Review: PR created
+    Review --> InProgress: Changes requested
+    Review --> Done: Approved & merged
+    Done --> [*]
+    
+    note right of Backlog
+        AI: Generate stories
+        Human: Validate value
+        Time: 2-3 min/story
+    end note
+    
+    note right of Refinement
+        AI: Diagrams, tasks, specs
+        Human: Technical validation
+        Time: 15-30 min/story
+    end note
+    
+    note right of InProgress
+        AI: Code generation, tests
+        Human: Logic & validation
+        Time: 40-60% faster
+    end note
+    
+    note right of Review
+        AI: Analysis & suggestions
+        Human: Final approval
+        Agent PRs: Extra scrutiny
+    end note
+```
+
+---
+
+### Daily Standup with Kanban
+
+**Focus:** Flow, not status updates
+
+**Questions:**
+1. **Blocked?** - Any stories stuck?
+2. **WIP Violations?** - Anyone over limit?
+3. **Ready Queue?** - Do we have 15-20 ready stories?
+4. **Review Bottleneck?** - PRs waiting too long?
+5. **Agent Performance?** - Any issues with agent PRs?
+
+**AI Can Help:**
+- Generate standup notes from Jira
+- Identify bottlenecks automatically
+- Suggest WIP adjustments
+- Track metrics trends
+
+---
+
+### Refinement Session (Weekly)
+
+**Who:** PO + Tech Leads + Senior Devs  
+**Duration:** 1-2 hours  
+**Goal:** Keep Ready queue stocked
+
+**AI-Assisted Refinement:**
+1. **Review upcoming stories** (PO leads)
+2. **AI generates technical approach** for each story
+3. **Team validates and adjusts**
+4. **AI breaks into implementation tasks**
+5. **Stories marked Ready**
+
+**Without AI:** 8-10 stories refined per session  
+**With AI:** 15-20 stories refined per session  
+**Improvement:** 50-100% more throughput
+
+---
+
+### Continuous Improvement
+
+**Measure:**
+- Cycle time by story type
+- AI vs human implementation quality
+- Agent success rate
+- Review feedback frequency
+- Rework percentage
+
+**Adapt:**
+- Adjust WIP limits based on bottlenecks
+- Refine agent selection criteria
+- Improve story templates
+- Update refinement checklists
+- Train team on effective AI use
+
+---
+
+## Workflow Stages
 **Role:** Product Owner + Stakeholders  
 **Tools:** Cursor AI  
 **Time Savings:** 75-80% reduction in PRD creation time
