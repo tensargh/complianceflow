@@ -105,6 +105,12 @@ secrets/
 credentials.json
 service-account.json
 
+# Cursor MCP - Local configuration with tokens
+.cursor/mcp.json
+.cursor/mcp.local.json
+.cursor/*.token
+.cursor/*.secret
+
 # Local development overrides
 local_settings.py
 settings_local.py

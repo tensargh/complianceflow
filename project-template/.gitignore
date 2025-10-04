@@ -117,6 +117,11 @@ crash.*.log
 secrets.yaml
 secrets.yml
 
+# Cursor MCP - Local configuration with tokens
+.cursor/mcp.local.json
+.cursor/*.token
+.cursor/*.secret
+
 # Data directories
 data/
 uploads/
@@ -182,6 +187,7 @@ Thumbs.db
 # Compliance Flow specific
 migrations/versions/*.py
 !migrations/versions/.keep
+
 
 
 

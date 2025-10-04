@@ -1,0 +1,30 @@
+{
+  "_comment": "This is an example file. Copy this to 'mcp.local.json' and add your actual tokens.",
+  "_comment2": "The mcp.local.json file will be merged with mcp.json and is git-ignored for security.",
+  "mcpServers": {
+    "jira": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-jira"
+      ],
+      "env": {
+        "JIRA_URL": "https://complianceflow.atlassian.net",
+        "JIRA_EMAIL": "your-email@example.com",
+        "JIRA_API_TOKEN": "your-jira-api-token-here"
+      }
+    },
+    "slack": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-slack"
+      ],
+      "env": {
+        "SLACK_BOT_TOKEN": "xoxb-your-token-here",
+        "SLACK_TEAM_ID": "your-team-id"
+      }
+    }
+  }
+}
+
