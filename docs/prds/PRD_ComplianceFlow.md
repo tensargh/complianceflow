@@ -51,22 +51,82 @@ A multi-tenant cloud-native SaaS platform that provides:
 
 ## 3. User Personas
 
-### 3.1 Users
-**Primary Role**: Declaration Submitters
-- Submit activity declarations through business unit-specific dynamic forms
-- Track status of submitted declarations
-- Receive notifications on approval/denial decisions
-- View historical declarations and outcomes
-- Respond to reviewer requests for additional information
+**Note:** ComplianceFlow is a multi-tenant SaaS platform. Roles are split into **Platform Roles** (our company staff) and **Tenant Roles** (customer organization users).
+
+---
+
+### 3.1 Platform Roles (ComplianceFlow Company)
+
+#### Platform Support
+**Primary Role**: Customer Onboarding and Support
+- Provision new tenant accounts when contracts are signed
+- Generate initial Tenant Admin credentials
+- Assist customers with SSO configuration issues
+- Monitor tenant health and usage
+- Suspend/reactivate tenants for billing or contract issues
+- Provide technical support across all customer tenants
 
 **Key Needs**:
-- Intuitive form interface with conditional fields
-- Clear status tracking with review stage visibility
-- Timely notifications (email-based initially)
-- Historical record access
-- Ability to provide additional information when requested
+- Simple tenant provisioning workflow
+- Customer onboarding automation
+- Cross-tenant visibility for support
+- Audit logging of all support actions
+- Knowledge base for troubleshooting
 
-### 3.2 Reviewers
+#### Platform Admin
+**Primary Role**: Platform Security and Operations
+- Rotate JWT signing keys (affects all tenants)
+- Emergency access to any tenant
+- Platform-wide configuration management
+- Security incident response
+- Infrastructure oversight
+
+**Key Needs**:
+- Platform-wide monitoring and alerting
+- Security operations tools
+- Audit trail of all administrative actions
+- Emergency break-glass capabilities
+
+---
+
+### 3.2 Tenant Roles (Customer Organization Users)
+
+#### Tenant Admin
+**Primary Role**: Organizational IT Administration
+- Configure Azure AD SSO for their organization
+- Manage users within their organization (create, suspend, deactivate)
+- Assign roles (promote users to Compliance Officer, Reviewer)
+- Create and manage business unit structure
+- View organization-wide analytics
+- Manage organizational settings
+
+**Key Needs**:
+- Self-service SSO configuration with testing
+- Easy user management interface
+- Business unit hierarchy management
+- Clear documentation for initial setup
+- Ability to delegate admin responsibilities
+
+#### Compliance Officer
+**Primary Role**: Compliance Program Management (NOT System Administration)
+- Configure declaration types and forms using versioned form builder
+- Define business rules for automated evaluation with audit trails
+- Manage reviewer group assignments
+- Conduct investigations on raised cases (silent and escalated)
+- Access comprehensive reporting and analytics dashboards
+- Perform break-glass overrides with mandatory reason documentation
+- Manage notification templates with mail-merge capabilities
+
+**Key Needs**:
+- Powerful configuration tools with versioning and approval workflows
+- Comprehensive case management with notes and attachments
+- Advanced reporting capabilities with real-time dashboards
+- Break-glass override capabilities with full audit trails
+- Notification template management and recipient configuration
+
+**Note:** Compliance Officers manage COMPLIANCE PROGRAMS, not users or SSO. They work with rules, forms, cases, and investigations.
+
+#### Reviewers
 **Primary Role**: Declaration Evaluators
 - Review declarations assigned through reviewer groups based on activity type and business unit
 - Approve, deny, or request additional information from submitters
@@ -84,24 +144,20 @@ A multi-tenant cloud-native SaaS platform that provides:
 - Performance metrics visibility (team ranking without seeing other groups' data)
 - Reviewer queue interface for managing group assignments
 
-### 3.3 Compliance Officers
-**Primary Role**: System Administrators and Investigators
-- Configure declaration types and forms using versioned form builder
-- Define business rules for automated evaluation with audit trails
-- Manage reviewer group assignments and business unit mappings
-- Configure SSO role mappings and user group assignments
-- Conduct investigations on raised cases (silent and escalated)
-- Access comprehensive reporting and analytics dashboards
-- Perform break-glass overrides with mandatory reason documentation
-- Manage notification templates with mail-merge capabilities
+#### Users
+**Primary Role**: Declaration Submitters
+- Submit activity declarations through business unit-specific dynamic forms
+- Track status of submitted declarations
+- Receive notifications on approval/denial decisions
+- View historical declarations and outcomes
+- Respond to reviewer requests for additional information
 
 **Key Needs**:
-- Powerful configuration tools with versioning and approval workflows
-- Comprehensive case management with notes and attachments
-- Advanced reporting capabilities with real-time dashboards
-- Break-glass override capabilities with full audit trails
-- SSO integration management and role mapping
-- Notification template management and recipient configuration
+- Intuitive form interface with conditional fields
+- Clear status tracking with review stage visibility
+- Timely notifications (email-based initially)
+- Historical record access
+- Ability to provide additional information when requested
 
 ---
 
@@ -325,22 +381,29 @@ A multi-tenant cloud-native SaaS platform that provides:
 ```
 - tenant_id (UUID, Primary Key)
 - name (String)
-- domain (String)
-- sso_config (JSON)
-- created_at (Timestamp)
+- domain (String, Unique)
 - status (Enum: active, suspended, archived)
+- billing_contact (String)
+- technical_contact (String)
+- created_at (Timestamp)
+- onboarded_at (Timestamp)
 ```
 
 #### User
 ```
 - user_id (UUID, Primary Key)
-- tenant_id (UUID, Foreign Key)
+- tenant_id (UUID, Foreign Key, Nullable for platform roles)
 - email (String)
-- business_unit_id (UUID, Foreign Key)
+- business_unit_id (UUID, Foreign Key, Nullable)
 - sso_groups (Array[String])
-- roles (Array[Enum]: user, reviewer, compliance_officer)
+- roles (Array[Enum]: user, reviewer, compliance_officer, tenant_admin, platform_admin, platform_support, platform_devops)
+- status (Enum: active, suspended, deactivated)
 - created_at (Timestamp)
 ```
+
+**Role Types:**
+- **Platform Roles** (tenant_id = null): platform_admin, platform_support, platform_devops
+- **Tenant Roles** (tenant_id = specific): user, reviewer, compliance_officer, tenant_admin
 
 #### Declaration
 ```
@@ -403,7 +466,7 @@ A multi-tenant cloud-native SaaS platform that provides:
 
 | Service | Owns | Reads From | Writes To |
 |---------|------|------------|-----------|
-| **User Service** | Users, BusinessUnits, SSO Config | None | User events |
+| **User Service** | Users, Tenants, BusinessUnits, SSO Config | None | User events, Tenant events |
 | **Declaration Service** | Declarations, Submissions | Users, Forms | Declaration events |
 | **Form Service** | Forms, Templates, Versions | Users | Form events |
 | **Rule Engine Service** | Rules, Evaluations | Declarations, External APIs | Decision events, Case events |
@@ -432,10 +495,17 @@ A multi-tenant cloud-native SaaS platform that provides:
 - `case.status_changed` - Case status updated
 - `case.closed` - Case closed with findings
 
+#### Tenant Events
+- `tenant.created` - New customer onboarded (triggers all services to initialize)
+- `tenant.suspended` - Tenant suspended (billing/contract issue)
+- `tenant.reactivated` - Tenant access restored
+
 #### User Events
 - `user.provisioned` - New user from SSO
 - `user.role_changed` - User role updated
 - `user.deactivated` - User access removed
+- `user.login` - User authenticated successfully
+- `user.logout` - User session ended
 
 ---
 

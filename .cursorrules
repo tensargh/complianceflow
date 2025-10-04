@@ -53,3 +53,84 @@ When recommending a package, library, or framework:
 ## Reminder
 This project is **proprietary software**. License compliance is not optional—it's mandatory to protect intellectual property rights.
 
+---
+
+## Documentation Discipline - CRITICAL
+
+### Documentation Principles
+
+**ONE SOURCE OF TRUTH:**
+- **TASKLIST.md** = ONLY place for tasks, todos, next actions, checklists
+- **Reference docs** = Definitions, specifications, reference only (NO tasks/todos/changelogs)
+- **README files** = Navigation and quick start guides only
+
+**When Creating New Documents:**
+- Ask: Does this serve a unique, focused purpose?
+- Check: Can this be added to an existing document instead?
+- Ensure: Document has single, clear purpose
+- Avoid: Task lists, action items, todo checklists in reference docs
+
+**Document Types:**
+- **Reference** - Roles_and_Personas.md, Tech_Stack_Definition.md (definitions only)
+- **Requirements** - PRD files (specifications, no tasks)
+- **Process** - Workflow documents (how-to, no specific tasks)
+- **Tracking** - TASKLIST.md (tasks), Time_Savings_Log.md (metrics)
+- **Business** - Business_Value_Proposition.md (sales pitch, evidence)
+
+**Prohibited:**
+- ❌ Task lists in multiple documents
+- ❌ "Next Actions" sections in reference docs
+- ❌ Duplicate information across files
+- ❌ Mixing reference content with action items
+
+---
+
+## Business Value Documentation - CRITICAL
+
+### Primary Project Goal
+This project serves as a **consulting portfolio and demonstration vehicle** to showcase AI-assisted SDLC implementation expertise. The technical product is secondary to the business value demonstration.
+
+### Automatic Documentation Updates
+When completing ANY work in the SDLC (requirements, design, development, testing, deployment):
+
+1. **ALWAYS update** `docs/Business_Value_Proposition.md`:
+   - Add time savings observed for the specific role/stage
+   - Update the elevator pitch productivity tally
+   - Add concrete examples of AI assistance benefits
+   - Keep evidence-based, realistic claims
+
+2. **ALWAYS update** `docs/Time_Savings_Log.md`:
+   - Record the task/epic/story worked on
+   - Estimate traditional time (without AI assistance)
+   - Record actual time spent (with AI assistance)
+   - Calculate and log the time savings percentage
+   - Note techniques that provided the most value
+
+3. **Focus on demonstrable value**:
+   - How much faster was the work completed?
+   - What tedious work was automated (boilerplate, formatting, etc.)?
+   - What quality improvements were achieved (consistency, completeness)?
+   - What would a traditional approach have missed?
+
+### Consulting Value Proposition
+Emphasize throughout documentation:
+- Techniques are **tool-agnostic** (can apply to C#/Azure/ADO, Java/AWS, etc.)
+- Consultant provides **full SDLC expertise**, not just coding
+- Time savings compound across all roles (PO, Dev, QA, DevOps)
+- Measurable ROI through tracked productivity improvements
+- Emphasis on interactive, validated approach (AI assists, humans verify)
+
+### Documentation Style
+- Business value docs should be **sales-oriented** (benefits, ROI, time savings)
+- Technical docs should be **implementation-oriented** (how-to, examples)
+- Keep them separate but cross-referenced
+- Business value docs are for leadership/decision-makers
+- Technical docs are for practitioners
+
+### Success Metrics
+Track and document:
+- Time to complete each SDLC phase
+- Story points delivered per sprint
+- Quality metrics (test coverage, bug rates)
+- Developer satisfaction and velocity
+- Comparison to industry benchmarks
