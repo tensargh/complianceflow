@@ -10,6 +10,39 @@ This directory contains Model Context Protocol (MCP) server configurations for C
 
 **Note:** The root `.cursor/mcp.json` is git-ignored. The template version is in `project-template/.cursor/mcp.json` and IS committed to Git.
 
+## 📋 Prerequisites
+
+Before setting up MCP servers, ensure you have the following installed:
+
+### Required Software
+
+1. **Node.js and npm** (for `npx` command)
+   - Download: https://nodejs.org/
+   - Verify installation: `npx --version`
+   - Required for: GitHub, Filesystem, and PostgreSQL MCPs
+
+2. **Python 3.8+** (optional - for future Python-based MCPs)
+   - Download: https://www.python.org/downloads/
+   - Verify installation: `python --version`
+   - Note: NOT required for current setup (GitHub, Filesystem, PostgreSQL, Atlassian MCPs)
+
+### Installation Commands
+
+```powershell
+# Windows PowerShell
+
+# 1. Check if Node.js/npx is installed
+npx --version
+
+# 2. Check if Python is installed
+python --version
+
+# 3. All prerequisites installed!
+# Note: Official Atlassian MCP Server requires NO additional installs
+```
+
+---
+
 ## 🚀 Quick Setup
 
 ### Current Setup (Direct Token in mcp.json)
@@ -66,10 +99,18 @@ If you prefer environment variables:
 - **Setup**: Pre-configured for local development
 - **Connection**: `postgresql://localhost/complianceflow`
 
-### Jira MCP (Example Only)
-- **Package**: `@modelcontextprotocol/server-jira` (may not exist yet)
-- **Features**: Create/manage stories, epics, tasks
-- **Setup**: Copy from `mcp.local.json.example` if available
+### Atlassian (Jira + Confluence) MCP
+- **Server**: Official Atlassian Remote MCP Server
+- **Provider**: Atlassian (Official Product)
+- **URL**: https://mcp.atlassian.com/v1/sse
+- **License**: Official Atlassian ✅ (No third-party licensing concerns)
+- **Transport**: SSE (Server-Sent Events)
+- **Prerequisites**: None! Remote server (no local installation)
+- **Features**: Jira issues (create/read/update/search), Confluence pages, JQL queries
+- **Setup**: Requires `ATLASSIAN_SITE_URL`, `ATLASSIAN_EMAIL`, and `ATLASSIAN_API_TOKEN` env vars
+- **Rate Limit**: 500 calls/hour (Free plan)
+- **Docs**: https://www.atlassian.com/platform/remote-mcp-server
+- **GitHub**: https://github.com/atlassian/atlassian-mcp-server
 
 ### Slack MCP (Example Only)
 - **Package**: `@modelcontextprotocol/server-slack` (may not exist yet)
@@ -117,13 +158,37 @@ Ask Cursor: "Show me the schema for the users table"
 Expected: Displays table structure
 ```
 
+### Test Atlassian MCP
+```
+Ask Cursor: "List all issues in the [YOUR-PROJECT] project"
+Expected: Shows Jira issues without browser
+```
+
 ## 🐛 Troubleshooting
 
-**MCP server not loading?**
-1. Check if `npx` is available: `npx --version`
-2. Verify JSON syntax is valid (no trailing commas)
-3. Restart Cursor after changes
-4. Check Cursor's output panel for errors
+### MCP Server Not Loading?
+
+1. **Check prerequisites are installed:**
+   ```powershell
+   npx --version        # Should show version number
+   python --version     # Should show Python 3.8+
+   python -m uv --version  # Should show uv version
+   ```
+
+2. **Verify JSON syntax is valid** (no trailing commas)
+
+3. **Restart Cursor after changes**
+
+4. **Check Cursor's MCP Logs:**
+   - Open Output panel: `Ctrl+Shift+U` (Windows) or `Cmd+Shift+U` (Mac)
+   - Select "MCP Logs" from dropdown
+   - Look for specific error messages
+
+5. **Common Issues:**
+   - "command not found: npx" → Install Node.js
+   - "No tools prompts or resources" → Check MCP logs for specific error
+   - Connection failed → Check internet connection (Atlassian MCP requires internet)
+   - PATH not updated → Restart terminal/Cursor after installing tools
 
 **Token not working?**
 1. Verify environment variable is set: `echo $env:GITHUB_TOKEN`
@@ -132,9 +197,25 @@ Expected: Displays table structure
 4. Try regenerating the token
 
 **Cannot find MCP package?**
-1. Some MCPs may not exist yet (especially Jira, Slack)
+1. Some MCPs may not exist yet
 2. Check official list: https://github.com/modelcontextprotocol/servers
 3. Remove or comment out non-existent servers
+4. For remote servers (like Atlassian), verify the URL is correct
+
+**Atlassian MCP Specific Issues:**
+1. **"Cannot connect to Atlassian MCP"**
+   - Solution: Verify your Atlassian API token is valid
+   - Check your site URL is correct (e.g., `https://yoursite.atlassian.net`)
+   - Ensure you have internet connection (remote server required)
+   
+2. **"No tools prompts or resources"**
+   - Check MCP Logs in Cursor Output panel (`Ctrl+Shift+U`)
+   - Verify all three env vars are set: `ATLASSIAN_SITE_URL`, `ATLASSIAN_EMAIL`, `ATLASSIAN_API_TOKEN`
+   - Restart Cursor completely
+   
+3. **"Rate limit exceeded"**
+   - Free plan allows 500 calls/hour
+   - Wait for the hour to reset, or upgrade to Standard (1000 calls/hour)
 
 ## 📚 Resources
 

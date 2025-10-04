@@ -10,9 +10,43 @@ MCPs allow Cursor AI to directly interact with external tools:
 
 ## 📋 Prerequisites
 
-- Cursor AI installed
+### Software Requirements
+
+Before setting up MCP integrations, ensure you have:
+
+1. **Cursor AI** - Installed and running
+   - Download: https://cursor.sh/
+
+2. **Node.js and npm** (for `npx` command)
+   - Download: https://nodejs.org/
+   - Verify: `npx --version`
+   - Required for: GitHub, Filesystem, PostgreSQL MCPs
+
+3. **Python 3.8+** (for Python-based MCPs)
+   - Download: https://www.python.org/downloads/
+   - Verify: `python --version`
+   - Required for: Jira MCP
+
+4. **uv (Python package manager)** (for Jira MCP)
+   - Install: `pip install uv`
+   - Verify: `python -m uv --version`
+   - Documentation: https://github.com/astral-sh/uv
+   - Required for: `mcp-atlassian` package
+
+### Quick Prerequisites Check
+
+```powershell
+# Windows PowerShell - Run these to verify everything is installed
+
+npx --version           # Should show version (e.g., 10.x.x)
+python --version        # Should show Python 3.8+
+python -m uv --version  # Should show uv version
+```
+
+### Account Access
+
 - Access to GitHub repository: https://github.com/tensargh/complianceflow
-- Jira Free account (to be created)
+- Jira account: https://timensor.atlassian.net (created ✅)
 
 ## 🚀 Quick Start
 
@@ -159,12 +193,12 @@ Test by asking Cursor to perform GitHub operations:
 1. Go to: https://www.atlassian.com/software/jira/free
 2. Click **"Get it free"**
 3. Sign up with email
-4. Create site name: `complianceflow` (or your preferred name)
-   - Your Jira URL will be: `https://complianceflow.atlassian.net`
+4. Create site name: `yoursite` (e.g., `complianceflow`)
+   - Your Jira URL will be: `https://yoursite.atlassian.net`
 5. Select template: **"Scrum"** (recommended) or **"Kanban"**
 6. Create project:
-   - Name: `ComplianceFlow`
-   - Key: `CF` (auto-generated, used as prefix for issues)
+   - Name: Choose a project name (e.g., `ComplianceFlow`)
+   - Key: Will be auto-generated (e.g., `CF`, `ECS`)
    - Type: Software development
 
 ### Step 2: Create Jira API Token
@@ -177,18 +211,17 @@ Test by asking Cursor to perform GitHub operations:
 
 ### Step 3: Configure Jira MCP in Cursor
 
-**Option A: Official Jira MCP (if available)**
+**Using**: **Official Atlassian Remote MCP Server**  
+**Provider**: Atlassian (Official)  
+**Server URL**: https://mcp.atlassian.com/v1/sse  
+**Transport**: SSE (Server-Sent Events)  
+**License**: Official Atlassian Product ✅  
+**Documentation**: https://www.atlassian.com/platform/remote-mcp-server  
+**GitHub**: https://github.com/atlassian/atlassian-mcp-server
 
-Check: https://github.com/modelcontextprotocol/servers
+**Works with Free Accounts**: Yes (500 API calls/hour on free plan)
 
-**Option B: Community Jira MCP**
-
-Research community options:
-- Search GitHub for: "mcp server jira"
-- Check MCP Registry (if available)
-- Community implementations may vary
-
-**Example Configuration** (add to the same `mcp.json` file):
+**Configuration in `.cursor/mcp.json`**:
 
 ```json
 {
@@ -200,30 +233,48 @@ Research community options:
         "GITHUB_PERSONAL_ACCESS_TOKEN": "github_pat_YOUR_TOKEN_HERE"
       }
     },
-    "jira": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@some-org/mcp-server-jira"
-      ],
+    "atlassian-official": {
+      "url": "https://mcp.atlassian.com/v1/sse",
+      "transport": "sse",
       "env": {
-        "JIRA_URL": "https://complianceflow.atlassian.net",
-        "JIRA_EMAIL": "your-email@example.com",
-        "JIRA_API_TOKEN": "your-api-token-here"
+        "ATLASSIAN_SITE_URL": "https://yoursite.atlassian.net",
+        "ATLASSIAN_EMAIL": "your-email@example.com",
+        "ATLASSIAN_API_TOKEN": "your-api-token-here"
       }
     }
   }
 }
 ```
 
-**Note:** Replace `@some-org/mcp-server-jira` with the actual Jira MCP package when found.
+**Setup Instructions**:
+1. Edit `.cursor/mcp.json` (already git-ignored)
+2. Set `ATLASSIAN_SITE_URL` to your Jira URL (e.g., `https://timensor.atlassian.net`)
+3. Set `ATLASSIAN_EMAIL` to your Atlassian email
+4. Set `ATLASSIAN_API_TOKEN` to the API token from Step 2
+5. Save the file
+6. Restart Cursor completely
+
+**Features**:
+- Jira issue management (create, read, update, search)
+- Confluence page management
+- OAuth authentication with granular permissions
+- Rate limiting: 500 calls/hour (Free), 1000 calls/hour (Standard/Premium)
+- Official Atlassian support and updates
 
 ### Step 4: Test Jira MCP
 
-**Test Commands:**
-1. "Create a Jira story in CF project: 'Setup User Service'"
-2. "List all epics in ComplianceFlow project"
-3. "Show me open stories assigned to me"
+**Test Commands (replace with your project key):**
+1. "List all issues in the [YOUR-PROJECT] project"
+2. "Create a Jira story in [YOUR-PROJECT] project: 'Test MCP Integration'"
+3. "Show me the current sprint backlog"
+4. "What's the status of [PROJECT-KEY]-1?"
+
+**Expected Behavior:**
+- Cursor can query and create Jira issues without opening a browser
+- Issues appear in your Jira board automatically
+- No context switching required
+- You should see your cloud ID retrieved automatically
+- JQL queries should work seamlessly
 
 ---
 

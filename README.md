@@ -184,9 +184,9 @@ uvicorn app.main:app --reload
 See `TASKLIST.md` for detailed implementation tasks.
 
 **Quick Start Path:**
-1. **Setup Tools** - Configure Jira, GitHub, GitHub Actions (see `docs/Recommended_Tool_Stack.md`)
-2. **Review Docs** - Read AI workflow guide and tech stack definition
-3. **Setup MCP** - Configure GitHub MCP in Cursor
+1. ✅ **Setup Tools** - Jira & GitHub configured (see `docs/MCP_Setup_Guide.md`)
+2. ✅ **Setup MCP** - GitHub & Atlassian MCP configured in Cursor
+3. **Review Docs** - Read AI workflow guide and tech stack definition
 4. **Copy Template** - Use project-template as starting point
 5. **Begin Development** - Start with User Service following patterns
 
@@ -242,7 +242,8 @@ complianceflow/                       # Single GitHub repository
 - **PRDs:** `/docs/prds/` (Master + 8 service PRDs)
 - **Tech Stack:** `/docs/Tech_Stack_Definition.md`
 - **AI Workflow:** `/docs/AI_Assisted_Development_Workflow.md`
-- **Tool Setup:** `/docs/Recommended_Tool_Stack.md` (Jira, GitHub, MCPs)
+- **Tool Setup:** `/docs/Recommended_Tool_Stack.md` + `/docs/MCP_Setup_Guide.md`
+- **MCP Setup:** ✅ GitHub & Atlassian MCP configured (see `.cursor/README.md`)
 - **Examples:** `/project-template/` (reference patterns)
 
 ---
