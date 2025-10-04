@@ -1,0 +1,856 @@
+# Compliance Flow Platform - Cursor Rules
+# AI Development Guidelines for Consistent Microservices Development
+
+## Project Overview
+This is a multi-tenant SaaS compliance platform with 8 microservices built using FastAPI, PostgreSQL, Redis, and Kafka on Azure.
+
+## Core Architecture Patterns
+
+### Microservices
+- User Service (8001): Identity & SSO management
+- Declaration Service (8002): Declaration lifecycle
+- Form Service (8003): Dynamic form builder  
+- Rule Engine Service (8004): Automated decisions
+- Review Service (8005): Human review workflow
+- Case Service (8006): Investigation management
+- Notification Service (8007): Email & communication
+- Analytics Service (8008): Reporting & dashboards
+
+### Technology Stack
+- Backend: Python 3.11+ with FastAPI
+- Database: PostgreSQL 15+ with SQLAlchemy 2.0
+- Caching: Redis 7+
+- Messaging: Apache Kafka (Confluent Cloud)
+- Frontend: React 18+ with TypeScript
+- Infrastructure: Azure Container Apps, Terraform
+
+## Naming Conventions
+
+### Services and Files
+- Service names: kebab-case (user-service, declaration-service)
+- Python modules: snake_case (user_service, auth_service)
+- Classes: PascalCase (UserService, DeclarationModel)
+- Functions/variables: snake_case (get_user, user_id)
+- Constants: UPPER_SNAKE_CASE (DATABASE_URL, MAX_RETRY_COUNT)
+
+### Database Tables and Columns
+- Table names: snake_case, plural (users, declarations, business_units)
+- Column names: snake_case (user_id, created_at, business_unit_id)
+- Foreign keys: {table}_id (user_id, tenant_id, declaration_id)
+- Timestamps: created_at, updated_at, deleted_at (use soft deletes)
+
+### Environment Variables
+ALL environment variables MUST use UPPER_SNAKE_CASE:
+- `APPLICATIONINSIGHTS_CONNECTION_STRING` (not applicationinsights_connection_string)
+- `DATABASE_URL` (not database_url)
+- `REDIS_URL` (not redis_url)
+- `KAFKA_BOOTSTRAP_SERVERS` (not kafka_bootstrap_servers)
+- `MONITORING_SAMPLING_RATE` (not monitoring_sampling_rate)
+- `LOG_LEVEL` (not log_level)
+
+### API Endpoints
+- RESTful URLs: /api/v1/{resource}
+- Collections: /api/v1/users, /api/v1/declarations
+- Resources: /api/v1/users/{user_id}, /api/v1/declarations/{declaration_id}
+- Actions: POST /api/v1/declarations/{id}/submit, PUT /api/v1/reviews/{id}/complete
+- Health check: /health (no /api prefix)
+
+## Kafka Event Naming
+
+### Topic Naming Convention
+Format: `{service}.{entity}.{action}`
+
+Examples:
+- user.user.created
+- user.user.updated
+- user.user.deactivated
+- declaration.declaration.submitted
+- declaration.declaration.approved
+- declaration.declaration.denied
+- review.review.assigned
+- review.review.completed
+- review.review.escalated
+- case.case.created
+- case.case.status_changed
+- case.case.closed
+
+### Event Schema Standard
+All events MUST follow this structure:
+```json
+{
+  "event_id": "uuid4",
+  "event_type": "service.entity.action",
+  "tenant_id": "uuid4",
+  "timestamp": "ISO8601 datetime",
+  "version": "1.0",
+  "correlation_id": "uuid4",
+  "data": {
+    // Event-specific payload
+  }
+}
+```
+
+### Event Payload Guidelines
+- Include entity ID in data: user_id, declaration_id, etc.
+- Include relevant context: previous state for updates
+- Keep payloads small - reference IDs instead of full objects
+- Include actor information: who performed the action
+- Use ISO8601 for all timestamps
+
+## Database Patterns
+
+### Multi-Tenancy
+- Every table MUST have tenant_id column
+- Use Row-Level Security (RLS) policies
+- All queries MUST filter by tenant_id
+- Indexes MUST include tenant_id as first column
+
+### Standard Columns
+Every table should include:
+```sql
+id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+tenant_id UUID NOT NULL REFERENCES tenants(id),
+created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL
+```
+
+### Migration Guidelines
+- Always use Alembic for schema changes
+- Include both upgrade() and downgrade() functions
+- Test migrations on copy of production data
+- Use descriptive migration names: "add_business_unit_to_users"
+- Never delete columns - use soft deletes instead
+
+## FastAPI Service Structure
+
+### Standard Service Layout
+```
+service-name/
+├── app/
+│   ├── main.py              # FastAPI app with routes
+│   ├── core/
+│   │   ├── config.py        # Pydantic settings
+│   │   ├── database.py      # SQLAlchemy setup
+│   │   ├── security.py      # Auth dependencies
+│   │   └── logging.py       # Structured logging
+│   ├── models/              # SQLAlchemy models
+│   ├── schemas/             # Pydantic schemas (request/response)
+│   ├── api/routes/          # API route handlers
+│   ├── services/            # Business logic
+│   ├── dependencies/        # FastAPI dependencies
+│   └── utils/               # Helper functions
+├── migrations/              # Alembic migrations
+├── tests/                   # pytest tests
+├── Dockerfile              # Container definition
+└── requirements.txt        # Python dependencies
+```
+
+### FastAPI Best Practices
+- Use dependency injection for database sessions
+- Separate Pydantic schemas for Create/Update/Response
+- Use background tasks for non-blocking operations
+- Include proper HTTP status codes and error responses
+- Add comprehensive OpenAPI documentation
+- Use async/await for database operations
+
+### Authentication Pattern
+```python
+# Standard auth dependency
+async def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db)
+) -> User:
+    # JWT validation logic
+    pass
+
+# Route protection
+@router.get("/protected")
+async def protected_route(
+    current_user: User = Depends(get_current_user)
+):
+    return {"user_id": current_user.id}
+```
+
+## Error Handling
+
+### Standard HTTP Status Codes
+- 200: Success
+- 201: Created
+- 204: No Content (successful delete)
+- 400: Bad Request (validation errors)
+- 401: Unauthorized (not authenticated)
+- 403: Forbidden (not authorized)
+- 404: Not Found
+- 409: Conflict (business rule violation)
+- 422: Unprocessable Entity (Pydantic validation)
+- 500: Internal Server Error
+
+### Error Response Format
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid input data",
+    "details": [
+      {
+        "field": "email",
+        "message": "Invalid email format"
+      }
+    ],
+    "correlation_id": "uuid4"
+  }
+}
+```
+
+## Testing Guidelines
+
+### Test Structure
+- Unit tests: Test individual functions/methods
+- Integration tests: Test API endpoints
+- End-to-end tests: Test complete user workflows
+- Use pytest fixtures for test data
+- Mock external dependencies (other services, APIs)
+
+### Test Naming
+- Test files: test_{module_name}.py
+- Test functions: test_{function_name}_{scenario}
+- Test classes: Test{ClassName}
+
+### Coverage Requirements
+- Minimum 80% code coverage
+- 100% coverage for critical business logic
+- Test both success and failure scenarios
+
+## Security Requirements
+
+### Authentication & Authorization
+- Use JWT tokens with RS256 signing
+- Implement token refresh mechanism
+- Include tenant_id in token claims
+- Validate permissions for all operations
+
+### Data Protection
+- Encrypt sensitive data at rest
+- Use HTTPS for all communications
+- Sanitize all user inputs
+- Implement rate limiting
+- Log security events
+
+### Secret Management
+- Store secrets in Azure Key Vault
+- Use managed identities for Azure services
+- Never commit secrets to git
+- Rotate secrets regularly
+
+## Logging and Monitoring
+
+### Structured Logging
+Use JSON format with these fields:
+```json
+{
+  "timestamp": "ISO8601",
+  "level": "INFO|DEBUG|WARNING|ERROR",
+  "service": "user-service",
+  "correlation_id": "uuid4",
+  "tenant_id": "uuid4",
+  "user_id": "uuid4",
+  "message": "Description",
+  "extra": {}
+}
+```
+
+### Health Checks
+Every service MUST implement:
+- GET /health - Basic health check
+- GET /health/ready - Readiness check (database connectivity)
+- GET /health/live - Liveness check (service responsiveness)
+
+## Inter-Service Communication
+
+### Synchronous (HTTP)
+- Use for immediate responses needed
+- Include correlation_id header
+- Implement circuit breaker pattern
+- Set reasonable timeouts (2-5 seconds)
+
+### Asynchronous (Kafka)
+- Use for eventual consistency
+- Implement idempotent consumers
+- Handle duplicate messages gracefully
+- Use dead letter queues for failed messages
+
+## Development Workflow
+
+### Git Practices
+- Use conventional commits: feat:, fix:, docs:, refactor:
+- Create feature branches: feature/add-user-authentication
+- Include tests with every feature
+- Update documentation with changes
+
+### Code Review Checklist
+- [ ] Follows naming conventions
+- [ ] Includes appropriate tests
+- [ ] Handles errors gracefully  
+- [ ] Includes tenant_id filtering
+- [ ] Updates API documentation
+- [ ] Logs important events
+- [ ] Implements security best practices
+
+## Adding New Rules
+
+### How to Add Rules to .cursorrules
+When you need to add a new rule or pattern:
+
+1. **Identify the category**: Architecture, Naming, Database, API, etc.
+2. **Add to appropriate section**: Keep related rules together
+3. **Provide examples**: Show correct implementation
+4. **Explain rationale**: Why this pattern is important
+5. **Update version**: Increment version number at top
+
+### Rule Categories
+- **Naming Conventions**: Consistency across services
+- **Database Patterns**: Multi-tenancy, migrations, schemas
+- **API Design**: REST patterns, error handling, auth
+- **Event Patterns**: Kafka topics, event schemas
+- **Security**: Authentication, authorization, secrets
+- **Testing**: Coverage, structure, naming
+- **Monitoring**: Logging, health checks, metrics
+
+### Example Rule Addition
+```
+### New Feature Pattern
+When implementing user preferences:
+- Table name: user_preferences (snake_case, plural)
+- Foreign key: user_id references users(id)
+- Event: user.preferences.updated
+- API: PUT /api/v1/users/{user_id}/preferences
+```
+
+## Clean Python Implementation Guidelines
+
+### Code Quality Standards
+Every feature implementation MUST follow these patterns:
+
+#### Function and Class Design
+```python
+# ✅ GOOD: Clean, monitored function
+@monitoring.trace_function("user_service.create_user")
+async def create_user(
+    user_data: UserCreate,
+    db: AsyncSession,
+    current_user: User = Depends(get_current_user)
+) -> UserResponse:
+    """
+    Create a new user with comprehensive monitoring.
+    
+    Args:
+        user_data: User creation data
+        db: Database session
+        current_user: Authenticated user performing the action
+        
+    Returns:
+        UserResponse: Created user data
+        
+    Raises:
+        HTTPException: If user creation fails
+        ValidationError: If input data is invalid
+    """
+    # 1. Input validation and logging
+    logger.info(
+        "Creating new user",
+        extra={
+            "custom_dimensions": {
+                "email": user_data.email,
+                "role": user_data.role,
+                "tenant_id": current_user.tenant_id,
+                "created_by": current_user.id
+            }
+        }
+    )
+    
+    # 2. Business logic with error handling
+    try:
+        # Validate business rules
+        await _validate_user_creation_rules(user_data, db)
+        
+        # Create user
+        user = await user_repository.create(user_data, db)
+        
+        # 3. Event publication
+        await publish_event(
+            "user.user.created",
+            {
+                "user_id": str(user.id),
+                "email": user.email,
+                "tenant_id": user.tenant_id,
+                "created_by": str(current_user.id)
+            }
+        )
+        
+        # 4. Success logging
+        logger.info(
+            "User created successfully",
+            extra={
+                "custom_dimensions": {
+                    "user_id": str(user.id),
+                    "email": user.email,
+                    "tenant_id": user.tenant_id
+                }
+            }
+        )
+        
+        return UserResponse.from_orm(user)
+        
+    except ValidationError as e:
+        logger.warning(
+            "User creation validation failed",
+            extra={
+                "custom_dimensions": {
+                    "email": user_data.email,
+                    "errors": str(e),
+                    "tenant_id": current_user.tenant_id
+                }
+            }
+        )
+        raise HTTPException(status_code=400, detail=str(e))
+        
+    except Exception as e:
+        logger.error(
+            "User creation failed",
+            extra={
+                "custom_dimensions": {
+                    "email": user_data.email,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                    "tenant_id": current_user.tenant_id
+                }
+            }
+        )
+        raise HTTPException(status_code=500, detail="Internal server error")
+```
+
+#### Repository Pattern Implementation
+```python
+# ✅ GOOD: Repository with monitoring and caching
+class UserRepository:
+    """User repository with caching and monitoring."""
+    
+    def __init__(self, db: AsyncSession, cache: RedisCache):
+        self.db = db
+        self.cache = cache
+        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+    
+    @monitoring.trace_method("user_repository.get_by_id")
+    async def get_by_id(self, user_id: UUID, tenant_id: UUID) -> Optional[User]:
+        """Get user by ID with caching and monitoring."""
+        cache_key = f"user:{user_id}:{tenant_id}"
+        
+        # Try cache first
+        cached_user = await self.cache.get(cache_key)
+        if cached_user:
+            self.logger.debug(
+                "User retrieved from cache",
+                extra={"custom_dimensions": {"user_id": str(user_id), "cache_hit": True}}
+            )
+            return User.parse_obj(cached_user)
+        
+        # Database query with metrics
+        start_time = time.time()
+        try:
+            query = select(User).where(
+                User.id == user_id,
+                User.tenant_id == tenant_id,
+                User.deleted_at.is_(None)
+            )
+            result = await self.db.execute(query)
+            user = result.scalar_one_or_none()
+            
+            query_duration = time.time() - start_time
+            
+            if user:
+                # Cache the result
+                await self.cache.set(cache_key, user.dict(), expire=300)
+                
+                self.logger.info(
+                    "User retrieved from database",
+                    extra={
+                        "custom_dimensions": {
+                            "user_id": str(user_id),
+                            "cache_hit": False,
+                            "query_duration": query_duration
+                        }
+                    }
+                )
+            else:
+                self.logger.warning(
+                    "User not found",
+                    extra={"custom_dimensions": {"user_id": str(user_id), "tenant_id": str(tenant_id)}}
+                )
+            
+            return user
+            
+        except Exception as e:
+            self.logger.error(
+                "Database query failed",
+                extra={
+                    "custom_dimensions": {
+                        "user_id": str(user_id),
+                        "error": str(e),
+                        "query_duration": time.time() - start_time
+                    }
+                }
+            )
+            raise
+```
+
+#### Service Layer Implementation
+```python
+# ✅ GOOD: Service with comprehensive monitoring
+class UserService:
+    """User service with monitoring, caching, and event publishing."""
+    
+    def __init__(
+        self,
+        user_repo: UserRepository,
+        event_publisher: EventPublisher,
+        cache: RedisCache
+    ):
+        self.user_repo = user_repo
+        self.event_publisher = event_publisher
+        self.cache = cache
+        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        self.metrics = MetricsCollector("user_service")
+    
+    @monitoring.trace_method("user_service.authenticate_user")
+    async def authenticate_user(
+        self, 
+        email: str, 
+        password: str, 
+        tenant_id: UUID
+    ) -> Optional[User]:
+        """Authenticate user with comprehensive logging and metrics."""
+        
+        # Start timing authentication
+        auth_timer = self.metrics.start_timer("authentication_duration")
+        
+        self.logger.info(
+            "User authentication attempt",
+            extra={
+                "custom_dimensions": {
+                    "email": email,
+                    "tenant_id": str(tenant_id),
+                    "ip_address": get_client_ip()
+                }
+            }
+        )
+        
+        try:
+            # Get user from database
+            user = await self.user_repo.get_by_email(email, tenant_id)
+            
+            if not user:
+                self.metrics.increment_counter("authentication_failed", {"reason": "user_not_found"})
+                self.logger.warning(
+                    "Authentication failed - user not found",
+                    extra={"custom_dimensions": {"email": email, "tenant_id": str(tenant_id)}}
+                )
+                return None
+            
+            if not user.is_active:
+                self.metrics.increment_counter("authentication_failed", {"reason": "user_inactive"})
+                self.logger.warning(
+                    "Authentication failed - user inactive",
+                    extra={"custom_dimensions": {"email": email, "user_id": str(user.id)}}
+                )
+                return None
+            
+            # Verify password
+            if not verify_password(password, user.hashed_password):
+                self.metrics.increment_counter("authentication_failed", {"reason": "invalid_password"})
+                self.logger.warning(
+                    "Authentication failed - invalid password",
+                    extra={"custom_dimensions": {"email": email, "user_id": str(user.id)}}
+                )
+                # Publish security event
+                await self.event_publisher.publish(
+                    "user.authentication.failed",
+                    {
+                        "user_id": str(user.id),
+                        "email": email,
+                        "reason": "invalid_password",
+                        "ip_address": get_client_ip(),
+                        "timestamp": datetime.utcnow().isoformat()
+                    }
+                )
+                return None
+            
+            # Successful authentication
+            auth_timer.stop()
+            self.metrics.increment_counter("authentication_successful")
+            
+            self.logger.info(
+                "User authenticated successfully",
+                extra={
+                    "custom_dimensions": {
+                        "user_id": str(user.id),
+                        "email": email,
+                        "tenant_id": str(tenant_id)
+                    }
+                }
+            )
+            
+            # Update last login
+            await self.user_repo.update_last_login(user.id)
+            
+            # Publish success event
+            await self.event_publisher.publish(
+                "user.authentication.successful",
+                {
+                    "user_id": str(user.id),
+                    "email": email,
+                    "tenant_id": str(tenant_id),
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            )
+            
+            return user
+            
+        except Exception as e:
+            auth_timer.stop()
+            self.metrics.increment_counter("authentication_error")
+            self.logger.error(
+                "Authentication error",
+                extra={
+                    "custom_dimensions": {
+                        "email": email,
+                        "error": str(e),
+                        "error_type": type(e).__name__
+                    }
+                }
+            )
+            raise
+```
+
+### Mandatory Monitoring for Every Feature
+
+#### 1. Function-Level Monitoring
+Every business function MUST include:
+```python
+# Required for ALL business functions
+@monitoring.trace_function("service.method_name")
+async def business_function(...):
+    # Start timing
+    timer = metrics.start_timer("function_duration")
+    
+    # Log function entry
+    logger.info("Function started", extra={"custom_dimensions": {...}})
+    
+    try:
+        # Business logic
+        result = await do_work()
+        
+        # Log success
+        logger.info("Function completed", extra={"custom_dimensions": {...}})
+        
+        # Increment success counter
+        metrics.increment_counter("function_success")
+        
+        return result
+        
+    except SpecificException as e:
+        # Log specific errors
+        logger.warning("Expected error", extra={"custom_dimensions": {...}})
+        metrics.increment_counter("function_warning", {"error_type": type(e).__name__})
+        raise
+        
+    except Exception as e:
+        # Log unexpected errors
+        logger.error("Unexpected error", extra={"custom_dimensions": {...}})
+        metrics.increment_counter("function_error", {"error_type": type(e).__name__})
+        raise
+        
+    finally:
+        # Always stop timer
+        timer.stop()
+```
+
+#### 2. Database Operations Monitoring
+Every database operation MUST include:
+```python
+async def database_operation(...):
+    query_timer = metrics.start_timer("database_query_duration")
+    
+    try:
+        result = await db.execute(query)
+        
+        metrics.increment_counter("database_query_success")
+        logger.debug(
+            "Database query executed",
+            extra={
+                "custom_dimensions": {
+                    "table": "users",
+                    "operation": "select",
+                    "duration": query_timer.duration
+                }
+            }
+        )
+        
+        return result
+        
+    except Exception as e:
+        metrics.increment_counter("database_query_error")
+        logger.error(
+            "Database query failed",
+            extra={
+                "custom_dimensions": {
+                    "table": "users",
+                    "operation": "select",
+                    "error": str(e)
+                }
+            }
+        )
+        raise
+    finally:
+        query_timer.stop()
+```
+
+#### 3. External Service Calls Monitoring
+Every external service call MUST include:
+```python
+async def call_external_service(...):
+    call_timer = metrics.start_timer("external_service_duration")
+    
+    try:
+        response = await http_client.post(url, json=data)
+        
+        metrics.increment_counter("external_service_success")
+        logger.info(
+            "External service called successfully",
+            extra={
+                "custom_dimensions": {
+                    "service": "declaration-service",
+                    "endpoint": "/api/v1/declarations",
+                    "status_code": response.status_code,
+                    "duration": call_timer.duration
+                }
+            }
+        )
+        
+        return response
+        
+    except httpx.TimeoutException as e:
+        metrics.increment_counter("external_service_timeout")
+        logger.warning("External service timeout", extra={...})
+        raise
+        
+    except httpx.HTTPStatusError as e:
+        metrics.increment_counter("external_service_error")
+        logger.error("External service error", extra={...})
+        raise
+        
+    finally:
+        call_timer.stop()
+```
+
+### Error Handling Patterns
+
+#### Standard Error Response Format
+```python
+class StandardError:
+    """Standard error response format."""
+    
+    @staticmethod
+    def validation_error(details: list, correlation_id: str) -> dict:
+        return {
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "Input validation failed",
+                "details": details,
+                "correlation_id": correlation_id,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        }
+    
+    @staticmethod
+    def business_rule_error(rule: str, correlation_id: str) -> dict:
+        return {
+            "error": {
+                "code": "BUSINESS_RULE_VIOLATION",
+                "message": f"Business rule violated: {rule}",
+                "correlation_id": correlation_id,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        }
+```
+
+### Performance Monitoring Requirements
+
+#### Required Metrics for Every Feature
+1. **Duration metrics**: Track how long operations take
+2. **Counter metrics**: Track success/failure rates
+3. **Gauge metrics**: Track current state (active connections, etc.)
+4. **Histogram metrics**: Track distribution of values
+
+```python
+# Example metrics collection
+class FeatureMetrics:
+    def __init__(self, feature_name: str):
+        self.feature_name = feature_name
+        
+    def track_operation(self, operation: str):
+        return MetricsContext(f"{self.feature_name}.{operation}")
+
+# Usage in every feature
+metrics = FeatureMetrics("user_management")
+
+@metrics.track_operation("create_user")
+async def create_user(...):
+    # Implementation with automatic metrics
+    pass
+```
+
+### Testing Requirements for Every Feature
+
+#### Mandatory Test Coverage
+```python
+# Every feature MUST have these test types:
+
+# 1. Unit tests for business logic
+async def test_create_user_success():
+    """Test successful user creation."""
+    pass
+
+async def test_create_user_validation_error():
+    """Test user creation with invalid data."""
+    pass
+
+async def test_create_user_duplicate_email():
+    """Test user creation with duplicate email."""
+    pass
+
+# 2. Integration tests for API endpoints
+async def test_create_user_endpoint():
+    """Test user creation API endpoint."""
+    pass
+
+# 3. Performance tests
+async def test_create_user_performance():
+    """Test user creation performance under load."""
+    pass
+
+# 4. Monitoring tests
+async def test_create_user_monitoring():
+    """Test that monitoring is properly configured."""
+    pass
+```
+
+## Version History
+- v1.0: Initial rules for microservices development
+- v1.1: Added comprehensive Python implementation guidelines
+- v1.2: Added mandatory monitoring and observability patterns
+- Last updated: December 2024
+
+---
+
+**These rules ensure consistent, maintainable, and scalable code across all microservices with comprehensive monitoring and observability. Follow them for optimal AI assistance and team collaboration.**

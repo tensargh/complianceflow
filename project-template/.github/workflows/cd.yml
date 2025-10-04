@@ -1,0 +1,365 @@
+name: Continuous Deployment
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+        - dev
+        - staging
+        - prod
+      services:
+        description: 'Services to deploy (comma-separated, or "all")'
+        required: false
+        default: 'all'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Determine deployment parameters
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.params.outputs.environment }}
+      services: ${{ steps.params.outputs.services }}
+      deploy_infrastructure: ${{ steps.params.outputs.deploy_infrastructure }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Determine deployment parameters
+        id: params
+        run: |
+          # Determine target environment
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            ENV="${{ github.event.inputs.environment }}"
+          else
+            ENV="dev"  # Auto-deploy to dev on main branch pushes
+          fi
+          echo "environment=$ENV" >> $GITHUB_OUTPUT
+          
+          # Determine services to deploy
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.services }}" != "all" ]; then
+            SERVICES_INPUT="${{ github.event.inputs.services }}"
+            SERVICES=$(echo "$SERVICES_INPUT" | tr ',' '\n' | jq -R -s -c 'split("\n")[:-1]')
+          else
+            # Auto-detect changed services or deploy all
+            if [ "${{ github.event_name }}" = "push" ]; then
+              CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+              SERVICES=$(echo "$CHANGED_FILES" | grep "^services/" | cut -d'/' -f2 | sort -u | jq -R -s -c 'split("\n")[:-1]')
+              if [ "$SERVICES" = "[]" ] || [ "$SERVICES" = '[""]' ]; then
+                SERVICES='["user-service","declaration-service","form-service","rule-engine-service","review-service","case-service","notification-service","analytics-service"]'
+              fi
+            else
+              SERVICES='["user-service","declaration-service","form-service","rule-engine-service","review-service","case-service","notification-service","analytics-service"]'
+            fi
+          fi
+          echo "services=$SERVICES" >> $GITHUB_OUTPUT
+          
+          # Check if infrastructure needs deployment
+          DEPLOY_INFRA="false"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            DEPLOY_INFRA="true"
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+            if echo "$CHANGED_FILES" | grep -q "^infrastructure/"; then
+              DEPLOY_INFRA="true"
+            fi
+          fi
+          echo "deploy_infrastructure=$DEPLOY_INFRA" >> $GITHUB_OUTPUT
+
+  # Deploy Infrastructure
+  deploy-infrastructure:
+    runs-on: ubuntu-latest
+    needs: setup
+    if: needs.setup.outputs.deploy_infrastructure == 'true'
+    environment: ${{ needs.setup.outputs.environment }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ~1.5
+      
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      
+      - name: Terraform Init
+        run: |
+          cd infrastructure
+          terraform init \
+            -backend-config="resource_group_name=${{ secrets.TF_STATE_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ secrets.TF_STATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=${{ needs.setup.outputs.environment }}.terraform.tfstate"
+      
+      - name: Terraform Plan
+        run: |
+          cd infrastructure
+          terraform plan \
+            -var-file="environments/${{ needs.setup.outputs.environment }}.tfvars" \
+            -out=tfplan
+      
+      - name: Terraform Apply
+        run: |
+          cd infrastructure
+          terraform apply -auto-approve tfplan
+      
+      - name: Export Terraform Outputs
+        id: tf-outputs
+        run: |
+          cd infrastructure
+          echo "container_registry_url=$(terraform output -raw container_registry_login_server)" >> $GITHUB_OUTPUT
+          echo "resource_group_name=$(terraform output -raw resource_group_name)" >> $GITHUB_OUTPUT
+          echo "container_apps_environment_id=$(terraform output -raw container_apps_environment_id)" >> $GITHUB_OUTPUT
+
+  # Deploy Services
+  deploy-services:
+    runs-on: ubuntu-latest
+    needs: [setup, deploy-infrastructure]
+    if: always() && !failure() && !cancelled()
+    environment: ${{ needs.setup.outputs.environment }}
+    strategy:
+      matrix:
+        service: ${{ fromJson(needs.setup.outputs.services) }}
+      max-parallel: 3
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      
+      - name: Get infrastructure outputs
+        id: infra
+        run: |
+          # Get outputs from Terraform state or previous job
+          RESOURCE_GROUP="${{ secrets.RESOURCE_GROUP_NAME }}"
+          REGISTRY_NAME="${{ secrets.CONTAINER_REGISTRY_NAME }}"
+          CONTAINER_APPS_ENV="${{ secrets.CONTAINER_APPS_ENVIRONMENT_NAME }}"
+          
+          echo "resource_group=$RESOURCE_GROUP" >> $GITHUB_OUTPUT
+          echo "registry_name=$REGISTRY_NAME" >> $GITHUB_OUTPUT
+          echo "container_apps_environment=$CONTAINER_APPS_ENV" >> $GITHUB_OUTPUT
+      
+      - name: Deploy Container App
+        run: |
+          SERVICE_NAME="${{ matrix.service }}"
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${SERVICE_NAME}:main-${{ github.sha }}"
+          
+          # Generate environment variables from secrets
+          ENV_VARS=""
+          
+          case $SERVICE_NAME in
+            "user-service")
+              PORT=8001
+              ENV_VARS="DATABASE_URL=secretref:user-db-url REDIS_URL=secretref:redis-url KAFKA_BOOTSTRAP_SERVERS=secretref:kafka-servers JWT_SECRET_KEY=secretref:jwt-secret"
+              ;;
+            "declaration-service")
+              PORT=8002
+              ENV_VARS="DATABASE_URL=secretref:declaration-db-url REDIS_URL=secretref:redis-url KAFKA_BOOTSTRAP_SERVERS=secretref:kafka-servers USER_SERVICE_URL=secretref:user-service-url FORM_SERVICE_URL=secretref:form-service-url"
+              ;;
+            "form-service")
+              PORT=8003
+              ENV_VARS="DATABASE_URL=secretref:form-db-url REDIS_URL=secretref:redis-url KAFKA_BOOTSTRAP_SERVERS=secretref:kafka-servers USER_SERVICE_URL=secretref:user-service-url"
+              ;;
+            "rule-engine-service")
+              PORT=8004
+              ENV_VARS="DATABASE_URL=secretref:rule-engine-db-url REDIS_URL=secretref:redis-url KAFKA_BOOTSTRAP_SERVERS=secretref:kafka-servers DECLARATION_SERVICE_URL=secretref:declaration-service-url"
+              ;;
+            "review-service")
+              PORT=8005
+              ENV_VARS="DATABASE_URL=secretref:review-db-url REDIS_URL=secretref:redis-url KAFKA_BOOTSTRAP_SERVERS=secretref:kafka-servers DECLARATION_SERVICE_URL=secretref:declaration-service-url USER_SERVICE_URL=secretref:user-service-url"
+              ;;
+            "case-service")
+              PORT=8006
+              ENV_VARS="DATABASE_URL=secretref:case-db-url REDIS_URL=secretref:redis-url KAFKA_BOOTSTRAP_SERVERS=secretref:kafka-servers DECLARATION_SERVICE_URL=secretref:declaration-service-url USER_SERVICE_URL=secretref:user-service-url"
+              ;;
+            "notification-service")
+              PORT=8007
+              ENV_VARS="DATABASE_URL=secretref:notification-db-url REDIS_URL=secretref:redis-url KAFKA_BOOTSTRAP_SERVERS=secretref:kafka-servers"
+              ;;
+            "analytics-service")
+              PORT=8008
+              ENV_VARS="DATABASE_URL=secretref:analytics-db-url REDIS_URL=secretref:redis-url KAFKA_BOOTSTRAP_SERVERS=secretref:kafka-servers"
+              ;;
+          esac
+          
+          # Create or update container app
+          az containerapp create \
+            --name $SERVICE_NAME \
+            --resource-group ${{ steps.infra.outputs.resource_group }} \
+            --environment ${{ steps.infra.outputs.container_apps_environment }} \
+            --image $IMAGE_TAG \
+            --target-port $PORT \
+            --ingress external \
+            --env-vars $ENV_VARS \
+            --cpu 0.5 \
+            --memory 1Gi \
+            --min-replicas 1 \
+            --max-replicas 10 \
+            --revision-suffix ${{ github.sha }} \
+            --registry-server ${{ steps.infra.outputs.registry_name }}.azurecr.io \
+            --registry-identity system \
+            --output none \
+            || az containerapp update \
+               --name $SERVICE_NAME \
+               --resource-group ${{ steps.infra.outputs.resource_group }} \
+               --image $IMAGE_TAG \
+               --env-vars $ENV_VARS \
+               --revision-suffix ${{ github.sha }} \
+               --output none
+
+  # Deploy Frontend
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    needs: [setup, deploy-infrastructure, deploy-services]
+    if: always() && !failure() && !cancelled()
+    environment: ${{ needs.setup.outputs.environment }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+      
+      - name: Build frontend
+        env:
+          REACT_APP_API_URL: ${{ secrets.API_GATEWAY_URL }}
+          REACT_APP_ENVIRONMENT: ${{ needs.setup.outputs.environment }}
+        run: |
+          cd frontend
+          npm run build
+      
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      
+      - name: Deploy to Azure Static Web Apps
+        run: |
+          # Deploy frontend build to Azure Static Web Apps or Container Apps
+          RESOURCE_GROUP="${{ secrets.RESOURCE_GROUP_NAME }}"
+          STATIC_WEB_APP_NAME="cf-${{ needs.setup.outputs.environment }}-frontend"
+          
+          # Create or update static web app
+          az staticwebapp create \
+            --name $STATIC_WEB_APP_NAME \
+            --resource-group $RESOURCE_GROUP \
+            --source frontend/dist \
+            --location "East US 2" \
+            --output none \
+            || echo "Static Web App already exists, updating..."
+
+  # Run Smoke Tests
+  smoke-tests:
+    runs-on: ubuntu-latest
+    needs: [setup, deploy-services, deploy-frontend]
+    if: always() && !failure() && !cancelled()
+    environment: ${{ needs.setup.outputs.environment }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install test dependencies
+        run: |
+          pip install requests pytest
+      
+      - name: Run smoke tests
+        env:
+          API_BASE_URL: ${{ secrets.API_GATEWAY_URL }}
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+        run: |
+          cd tests/smoke
+          pytest -v smoke_tests.py
+
+  # Update Pact Broker
+  update-pact-broker:
+    runs-on: ubuntu-latest
+    needs: [setup, deploy-services]
+    if: always() && !failure() && !cancelled() && needs.setup.outputs.environment == 'prod'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Update Pact Broker
+        env:
+          PACT_BROKER_BASE_URL: ${{ secrets.PACT_BROKER_URL }}
+          PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
+        run: |
+          # Notify Pact Broker of successful deployment
+          for service in $(echo '${{ needs.setup.outputs.services }}' | jq -r '.[]'); do
+            curl -X PUT \
+              -H "Authorization: Bearer $PACT_BROKER_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d '{"deployedVersion": "${{ github.sha }}", "environment": "${{ needs.setup.outputs.environment }}"}' \
+              "$PACT_BROKER_BASE_URL/deployments/provider/$service/version/${{ github.sha }}/environment/${{ needs.setup.outputs.environment }}"
+          done
+
+  # Notify Teams
+  notify:
+    runs-on: ubuntu-latest
+    needs: [setup, deploy-services, deploy-frontend, smoke-tests]
+    if: always()
+    
+    steps:
+      - name: Notify deployment status
+        env:
+          TEAMS_WEBHOOK: ${{ secrets.TEAMS_WEBHOOK_URL }}
+        run: |
+          STATUS="✅ Success"
+          COLOR="00FF00"
+          
+          if [ "${{ contains(needs.*.result, 'failure') }}" = "true" ]; then
+            STATUS="❌ Failed"
+            COLOR="FF0000"
+          elif [ "${{ contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            STATUS="⚠️ Cancelled"
+            COLOR="FFA500"
+          fi
+          
+          curl -H "Content-Type: application/json" -d '{
+            "@type": "MessageCard",
+            "@context": "https://schema.org/extensions",
+            "summary": "Deployment Status",
+            "themeColor": "'$COLOR'",
+            "sections": [{
+              "activityTitle": "Compliance Flow Deployment",
+              "activitySubtitle": "Environment: ${{ needs.setup.outputs.environment }}",
+              "facts": [
+                {"name": "Status", "value": "'$STATUS'"},
+                {"name": "Services", "value": "${{ needs.setup.outputs.services }}"},
+                {"name": "Commit", "value": "${{ github.sha }}"},
+                {"name": "Author", "value": "${{ github.actor }}"}
+              ]
+            }]
+          }' "$TEAMS_WEBHOOK" || true

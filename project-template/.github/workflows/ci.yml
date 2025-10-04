@@ -1,0 +1,354 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Service Discovery - Detect changed services
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.changes.outputs.services }}
+      infrastructure: ${{ steps.changes.outputs.infrastructure }}
+      frontend: ${{ steps.changes.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Detect changes
+        id: changes
+        run: |
+          # Get list of changed files
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }})
+          else
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          fi
+          
+          echo "Changed files: $CHANGED_FILES"
+          
+          # Detect changed services
+          SERVICES=$(echo "$CHANGED_FILES" | grep "^services/" | cut -d'/' -f2 | sort -u | jq -R -s -c 'split("\n")[:-1]')
+          echo "services=$SERVICES" >> $GITHUB_OUTPUT
+          
+          # Check infrastructure changes
+          INFRA_CHANGED="false"
+          if echo "$CHANGED_FILES" | grep -q "^infrastructure/"; then
+            INFRA_CHANGED="true"
+          fi
+          echo "infrastructure=$INFRA_CHANGED" >> $GITHUB_OUTPUT
+          
+          # Check frontend changes
+          FRONTEND_CHANGED="false"
+          if echo "$CHANGED_FILES" | grep -q "^frontend/"; then
+            FRONTEND_CHANGED="true"
+          fi
+          echo "frontend=$FRONTEND_CHANGED" >> $GITHUB_OUTPUT
+
+  # Lint and Security Scan
+  lint-and-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install black flake8 mypy bandit safety
+      
+      - name: Lint Python code
+        run: |
+          # Find all Python services
+          for service_dir in services/*/; do
+            if [ -f "$service_dir/requirements.txt" ]; then
+              echo "Linting $service_dir"
+              black --check --diff $service_dir/app/
+              flake8 $service_dir/app/ --max-line-length=88 --extend-ignore=E203,W503
+              mypy $service_dir/app/ --ignore-missing-imports
+            fi
+          done
+      
+      - name: Security scan with Bandit
+        run: |
+          for service_dir in services/*/; do
+            if [ -f "$service_dir/requirements.txt" ]; then
+              echo "Security scanning $service_dir"
+              bandit -r $service_dir/app/ -f json -o bandit-report-$(basename $service_dir).json || true
+            fi
+          done
+      
+      - name: Check for vulnerabilities in dependencies
+        run: |
+          for service_dir in services/*/; do
+            if [ -f "$service_dir/requirements.txt" ]; then
+              echo "Checking dependencies for $service_dir"
+              safety check --file $service_dir/requirements.txt --json --output safety-report-$(basename $service_dir).json || true
+            fi
+          done
+      
+      - name: Upload security reports
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: security-reports
+          path: |
+            bandit-report-*.json
+            safety-report-*.json
+
+  # Test Services
+  test-services:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: length(fromJson(needs.detect-changes.outputs.services)) > 0
+    strategy:
+      matrix:
+        service: ${{ fromJson(needs.detect-changes.outputs.services) }}
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_USER: test
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install service dependencies
+        run: |
+          if [ -f "services/${{ matrix.service }}/requirements.txt" ]; then
+            python -m pip install --upgrade pip
+            pip install -r services/${{ matrix.service }}/requirements.txt
+            pip install pytest pytest-cov pytest-asyncio httpx
+          fi
+      
+      - name: Run unit tests
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379
+          KAFKA_BOOTSTRAP_SERVERS: localhost:9092
+        run: |
+          if [ -f "services/${{ matrix.service }}/requirements.txt" ]; then
+            cd services/${{ matrix.service }}
+            pytest tests/ -v --cov=app --cov-report=xml --cov-report=html
+          fi
+      
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          file: services/${{ matrix.service }}/coverage.xml
+          flags: ${{ matrix.service }}
+          name: codecov-${{ matrix.service }}
+
+  # Contract Testing with Pact
+  contract-tests:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: length(fromJson(needs.detect-changes.outputs.services)) > 0
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install Pact
+        run: |
+          python -m pip install --upgrade pip
+          pip install pact-python
+      
+      - name: Start Pact Broker
+        run: |
+          docker run -d --name pact-broker \
+            -p 9292:9292 \
+            -e PACT_BROKER_DATABASE_URL=sqlite:////tmp/pact_broker.sqlite \
+            pactfoundation/pact-broker:latest
+          sleep 10
+      
+      - name: Run contract tests
+        env:
+          PACT_BROKER_BASE_URL: http://localhost:9292
+        run: |
+          # Run provider tests for each service
+          for service_dir in services/*/; do
+            if [ -f "$service_dir/tests/contract" ]; then
+              echo "Running contract tests for $service_dir"
+              cd $service_dir
+              python -m pytest tests/contract/ -v
+              cd ../..
+            fi
+          done
+
+  # Build and Push Container Images
+  build-images:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, test-services, lint-and-security]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    strategy:
+      matrix:
+        service: ${{ fromJson(needs.detect-changes.outputs.services) }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+      
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: services/${{ matrix.service }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Frontend Build and Test
+  frontend-ci:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+      
+      - name: Lint
+        run: |
+          cd frontend
+          npm run lint
+      
+      - name: Type check
+        run: |
+          cd frontend
+          npm run type-check
+      
+      - name: Run tests
+        run: |
+          cd frontend
+          npm run test -- --coverage --watchAll=false
+      
+      - name: Build
+        run: |
+          cd frontend
+          npm run build
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: frontend-build
+          path: frontend/dist/
+
+  # Infrastructure Validation
+  infrastructure-validation:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.infrastructure == 'true'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ~1.5
+      
+      - name: Terraform Format Check
+        run: |
+          cd infrastructure
+          terraform fmt -check -recursive
+      
+      - name: Terraform Init
+        run: |
+          cd infrastructure
+          terraform init -backend=false
+      
+      - name: Terraform Validate
+        run: |
+          cd infrastructure
+          terraform validate
+      
+      - name: Terraform Plan (Dev)
+        env:
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run: |
+          cd infrastructure
+          terraform plan -var-file="environments/dev.tfvars" -out=tfplan
+      
+      - name: Upload Terraform Plan
+        uses: actions/upload-artifact@v3
+        with:
+          name: terraform-plan
+          path: infrastructure/tfplan

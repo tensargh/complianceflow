@@ -1,0 +1,98 @@
+version: '3.8'
+
+# ComplianceFlow - Local Development Environment
+# This is the ROOT docker-compose file for the monorepo
+# Run: docker-compose up -d
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: complianceflow-postgres
+    environment:
+      POSTGRES_USER: complianceflow
+      POSTGRES_PASSWORD: dev_password_change_me
+      POSTGRES_DB: complianceflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U complianceflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: complianceflow-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Kafka (using Confluent images)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: complianceflow-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: complianceflow-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  # Services will be added here as we build them
+  # Example:
+  # user-service:
+  #   build:
+  #     context: .
+  #     dockerfile: services/user-service/Dockerfile
+  #   container_name: complianceflow-user-service
+  #   depends_on:
+  #     - postgres
+  #     - redis
+  #     - kafka
+  #   ports:
+  #     - "8001:8000"
+  #   environment:
+  #     DATABASE_URL: postgresql://complianceflow:dev_password_change_me@postgres:5432/complianceflow
+  #     REDIS_URL: redis://redis:6379
+  #     KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  #   volumes:
+  #     - ./services/user-service:/app
+  #     - ./shared:/app/shared
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  default:
+    name: complianceflow-network
+

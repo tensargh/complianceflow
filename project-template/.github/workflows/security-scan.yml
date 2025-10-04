@@ -1,0 +1,385 @@
+name: Security Scanning
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  # Static Application Security Testing (SAST)
+  sast-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install security tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit safety semgrep
+      
+      - name: Run Bandit security linter
+        run: |
+          bandit -r services/ -f json -o bandit-report.json || true
+          bandit -r services/ -f txt || true
+      
+      - name: Run Safety check for vulnerabilities
+        run: |
+          for service_dir in services/*/; do
+            if [ -f "$service_dir/requirements.txt" ]; then
+              echo "Checking $service_dir"
+              safety check --file "$service_dir/requirements.txt" --json --output "safety-$(basename $service_dir).json" || true
+            fi
+          done
+      
+      - name: Run Semgrep
+        run: |
+          semgrep --config=auto services/ --json --output=semgrep-report.json || true
+          semgrep --config=auto services/ || true
+      
+      - name: Upload SAST results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: sast-reports
+          path: |
+            bandit-report.json
+            safety-*.json
+            semgrep-report.json
+
+  # Container Security Scanning
+  container-security:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [user-service, declaration-service, form-service, rule-engine-service, review-service, case-service, notification-service, analytics-service]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build container image
+        run: |
+          docker build -t compliance-flow/${{ matrix.service }}:security-scan services/${{ matrix.service }}
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: compliance-flow/${{ matrix.service }}:security-scan
+          format: 'sarif'
+          output: 'trivy-${{ matrix.service }}.sarif'
+      
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-${{ matrix.service }}.sarif'
+          category: 'trivy-${{ matrix.service }}'
+      
+      - name: Run Hadolint for Dockerfile linting
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: services/${{ matrix.service }}/Dockerfile
+          format: sarif
+          output-file: hadolint-${{ matrix.service }}.sarif
+          no-fail: true
+      
+      - name: Upload Hadolint scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'hadolint-${{ matrix.service }}.sarif'
+          category: 'hadolint-${{ matrix.service }}'
+
+  # Infrastructure Security Scanning
+  infrastructure-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ~1.5
+      
+      - name: Terraform Init
+        run: |
+          cd infrastructure
+          terraform init -backend=false
+      
+      - name: Run Checkov for infrastructure security
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: infrastructure/
+          framework: terraform
+          output_format: sarif
+          output_file_path: checkov-infrastructure.sarif
+          quiet: true
+          soft_fail: true
+      
+      - name: Upload Checkov scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: checkov-infrastructure.sarif
+          category: checkov-infrastructure
+      
+      - name: Run TFSec
+        uses: aquasecurity/tfsec-action@v1.0.0
+        with:
+          working_directory: infrastructure/
+          format: sarif
+          soft_fail: true
+      
+      - name: Upload TFSec scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: tfsec.sarif
+          category: tfsec
+
+  # Frontend Security Scanning
+  frontend-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+      
+      - name: Run npm audit
+        run: |
+          cd frontend
+          npm audit --audit-level high --json > npm-audit.json || true
+          npm audit --audit-level high || true
+      
+      - name: ESLint security scan
+        run: |
+          cd frontend
+          npx eslint . --ext .js,.jsx,.ts,.tsx --format json -o eslint-security.json || true
+          npx eslint . --ext .js,.jsx,.ts,.tsx || true
+      
+      - name: Upload frontend security reports
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: frontend-security-reports
+          path: |
+            frontend/npm-audit.json
+            frontend/eslint-security.json
+
+  # Dependency Check
+  dependency-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Generate requirements.txt for all services
+        run: |
+          # Combine all requirements files
+          cat services/*/requirements.txt | sort -u > all-requirements.txt
+      
+      - name: Run OWASP Dependency Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: 'compliance-flow'
+          path: '.'
+          format: 'ALL'
+          args: >
+            --enableRetired
+            --enableExperimental
+            --scan "all-requirements.txt"
+            --scan "frontend/package.json"
+            --scan "frontend/package-lock.json"
+      
+      - name: Upload dependency check results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: dependency-check-reports
+          path: reports/
+
+  # Secret Scanning
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Run GitLeaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+      
+      - name: Run TruffleHog
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+
+  # License Compliance
+  license-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install license checker
+        run: |
+          pip install pip-licenses
+      
+      - name: Check Python licenses
+        run: |
+          for service_dir in services/*/; do
+            if [ -f "$service_dir/requirements.txt" ]; then
+              echo "Checking licenses for $service_dir"
+              pip install -r "$service_dir/requirements.txt"
+              pip-licenses --format=json --output-file="licenses-$(basename $service_dir).json"
+              pip-licenses --format=plain-vertical
+            fi
+          done
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Check Node.js licenses
+        run: |
+          cd frontend
+          npm ci
+          npx license-checker --json --out ../frontend-licenses.json
+          npx license-checker
+      
+      - name: Upload license reports
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: license-reports
+          path: |
+            licenses-*.json
+            frontend-licenses.json
+
+  # Compliance and Policy Check
+  compliance-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check for required security files
+        run: |
+          echo "Checking for required security and compliance files..."
+          
+          REQUIRED_FILES=(
+            "SECURITY.md"
+            "PRIVACY.md"
+            ".github/SECURITY.md"
+            "docs/COMPLIANCE.md"
+            "docs/DATA_GOVERNANCE.md"
+          )
+          
+          MISSING_FILES=()
+          for file in "${REQUIRED_FILES[@]}"; do
+            if [ ! -f "$file" ]; then
+              MISSING_FILES+=("$file")
+            fi
+          done
+          
+          if [ ${#MISSING_FILES[@]} -gt 0 ]; then
+            echo "Missing required files:"
+            printf '%s\n' "${MISSING_FILES[@]}"
+            echo "Please create these files for compliance."
+          else
+            echo "All required compliance files are present."
+          fi
+      
+      - name: Validate environment configurations
+        run: |
+          echo "Validating environment configurations..."
+          
+          # Check for hardcoded secrets or sensitive data
+          if grep -r -i "password\|secret\|key\|token" infrastructure/ --include="*.tf" --include="*.tfvars" | grep -v "secretref\|var\.\|local\."; then
+            echo "Warning: Potential hardcoded secrets found in infrastructure"
+            exit 1
+          fi
+          
+          # Check for proper secret management
+          if ! grep -q "azurerm_key_vault" infrastructure/main.tf; then
+            echo "Warning: Azure Key Vault not configured for secrets management"
+            exit 1
+          fi
+          
+          echo "Environment configuration validation passed."
+
+  # Security Report Summary
+  security-summary:
+    runs-on: ubuntu-latest
+    needs: [sast-scan, container-security, infrastructure-security, frontend-security, dependency-check, secret-scan, license-check, compliance-check]
+    if: always()
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+      
+      - name: Generate security summary
+        run: |
+          echo "# Security Scan Summary" > security-summary.md
+          echo "Generated on: $(date)" >> security-summary.md
+          echo "" >> security-summary.md
+          
+          echo "## Scan Results" >> security-summary.md
+          echo "- SAST Scan: ${{ needs.sast-scan.result }}" >> security-summary.md
+          echo "- Container Security: ${{ needs.container-security.result }}" >> security-summary.md
+          echo "- Infrastructure Security: ${{ needs.infrastructure-security.result }}" >> security-summary.md
+          echo "- Frontend Security: ${{ needs.frontend-security.result }}" >> security-summary.md
+          echo "- Dependency Check: ${{ needs.dependency-check.result }}" >> security-summary.md
+          echo "- Secret Scan: ${{ needs.secret-scan.result }}" >> security-summary.md
+          echo "- License Check: ${{ needs.license-check.result }}" >> security-summary.md
+          echo "- Compliance Check: ${{ needs.compliance-check.result }}" >> security-summary.md
+          echo "" >> security-summary.md
+          
+          echo "## Recommendations" >> security-summary.md
+          echo "1. Review all CRITICAL and HIGH severity findings" >> security-summary.md
+          echo "2. Update dependencies with known vulnerabilities" >> security-summary.md
+          echo "3. Ensure all secrets are properly managed" >> security-summary.md
+          echo "4. Validate license compliance for your organization" >> security-summary.md
+          
+          cat security-summary.md
+      
+      - name: Upload security summary
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-summary
+          path: security-summary.md
