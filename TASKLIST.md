@@ -63,17 +63,46 @@
 - [x] Create comprehensive Roles and Personas document
 - [x] Update PRDs with corrected role model
 - [x] Update documentation README
-- [ ] **NEXT: Manual story-by-story validation in Cursor**
-  - Review each story for business accuracy
-  - Validate acceptance criteria against requirements
+- [x] **Create missing ECS-46** (Story 0 - Azure subscription prep)
+- [x] **Fix ECS-18 dependencies** to reference ECS-46
+- [x] **Review ECS-46** - Validated and approved (9.5/10)
+- [x] **Review ECS-18** - Validated and enhanced (9.8/10)
+  - Multi-deployment state management
+  - Parallel deployment support
+  - State file naming convention validated
+  - ✅ **JIRA STORY UPDATED** - ECS-18 synced to Jira
+- [x] **Review ECS-19** - Validated and enhanced (9.7/10)
+  - Added Scenario 6: Network Monitoring and Diagnostics
+  - Enhanced DoD from 11 to 18 items
+  - NSG flow logs, Network Watcher, connectivity validation
+  - ✅ **JIRA STORY UPDATED** - ECS-19 synced to Jira
+- [x] **Review ECS-20** - Validated and updated (9.5/10)
+  - Comprehensive multi-deployment updates
+  - SSL/TLS enforcement scenario added
+  - PostgreSQL extensions scenario added
+  - RLS support documented
+  - Monitoring and diagnostics scenario added
+  - Enhanced DoD from 9 to 26 items
+  - Deployment-specific database naming
+  - ✅ **JIRA STORY UPDATED** - ECS-20 synced to Jira
+- [ ] **NEXT: Continue story-by-story validation (ECS-21 through ECS-44)**
+  - Update remaining Jira stories as they're reviewed
+  - Apply multi-deployment pattern to ECS-21-28
+  - Review Redis, Event Hub, Key Vault, Monitoring modules
+  - Review User Service stories (ECS-29-44)
+  - Validate remaining acceptance criteria
   - Check technical feasibility
   - Confirm story sequencing
   - Verify no additional gaps
 
-**Review Time So Far:** 15 minutes (role corrections)  
-**Estimated Remaining:** 20-30 minutes (detailed validation)
+**Review Time So Far:** 40 minutes (15 min role corrections + 20 min ECS-18/19/20 validation + 5 min Jira sync)  
+**Stories Validated:** 4 of 28 (ECS-46, ECS-18, ECS-19, ECS-20)  
+**Stories Synced to Jira:** 4 of 4 (ECS-46, ECS-18, ECS-19, ECS-20) ✅ **ALL CAUGHT UP!**  
+**Estimated Remaining:** 15-20 minutes (24 stories remaining at ~1 min each)
 
 **This is a CRITICAL STEP in the PO workflow** - AI generates fast, humans validate for domain accuracy.
+
+**⚠️ NEW RULE ESTABLISHED:** ALL story updates MUST be immediately synced to Jira. See `.cursorrules` "Jira Synchronization - CRITICAL" section.
 
 ---
 
@@ -157,10 +186,11 @@ Following **AI_Assisted_Development_Workflow.md** Stage 0 & 1:
   - [x] Updated documentation README
   - [ ] **NEXT: Complete detailed story validation (20-30 min estimate)**
 
-**Total PO Time:** 75 minutes (60 min creation + 15 min review)  
-**Traditional Estimate:** 7-9 hours  
-**Time Savings:** 86%  
-**Documentation Created:** Implementation_Sequence.md, ECS-7_Stories.md, ECS-8_Stories.md, Roles_and_Personas.md
+**Total PO Time:** 80 minutes (60 min creation + 20 min review)  
+**Traditional Estimate:** 7.5-10 hours (includes missing story)  
+**Time Savings:** 87%  
+**Documentation Created:** Implementation_Sequence.md, ECS-7_Stories.md, ECS-8_Stories.md, Roles_and_Personas.md, Story_Evaluations.md  
+**Stories in Jira:** 28 (ECS-46, ECS-18 through ECS-44)
 
 ---
 
@@ -196,16 +226,18 @@ Following **AI_Assisted_Development_Workflow.md** Stage 0 & 1:
   - [ ] Verify Redis container
   - [ ] Verify Kafka container (or use Confluent Cloud)
 
-### ☁️ Azure Account Setup
-- [ ] **Azure Subscription**
-  - [ ] Create or verify Azure subscription
-  - [ ] Install Azure CLI
-  - [ ] Login and set default subscription
-  - [ ] Create resource group: `rg-complianceflow-dev`
-  
+### ☁️ Azure Account Setup (MUST precede Terraform)
+- [ ] **Azure Subscription & Guardrails**
+  - [ ] Create or verify Azure subscription (Dev/Test if eligible)
+  - [ ] Create RGs: `rg-complianceflow-dev` (now), placeholders for stg/prod
+  - [ ] Set monthly budgets (50/80/100%) + cost anomaly alerts
+  - [ ] Apply baseline policies in dev (deny premium SKUs, enforce tags)
+  - [ ] Configure Log Analytics caps/retention for dev
+  - [ ] Install Azure CLI and set default subscription
+
 - [ ] **Service Principal for CI/CD**
-  - [ ] Create service principal
-  - [ ] Grant appropriate permissions
+  - [ ] Create service principal (least privilege)
+  - [ ] Grant scoped permissions to RGs
   - [ ] Store credentials in GitHub Secrets
 
 ---

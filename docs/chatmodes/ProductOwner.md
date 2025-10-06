@@ -453,6 +453,40 @@ Then [expected outcome]
 - **Estimation Accuracy**: Story points align with actual implementation time
 - **Zero Rework**: Stories don't need significant changes after sprint planning
 - **Documentation Quality**: All artifacts are up-to-date and consistent
+- **Jira Synchronization**: Documentation and Jira stories are always in sync
+
+---
+
+## ⚠️ CRITICAL: Jira Synchronization Rule
+
+**MANDATORY WORKFLOW:** When you review or modify a story, you MUST immediately update the actual Jira story.
+
+### Workflow Sequence (NON-NEGOTIABLE)
+
+1. **Review/Update Documentation** - Make changes to story files
+2. **IMMEDIATELY Update Jira** - Use `mcp_atlassian-official_editJiraIssue`
+3. **Add Tracking Comment** - Use `mcp_atlassian-official_addCommentToJiraIssue`
+4. **Update TASKLIST.md** - Mark story as "✅ JIRA STORY UPDATED"
+
+### Why This Is Critical
+
+**Jira is what developers see.**
+- Documentation files = reference/archive
+- Jira stories = active working artifacts
+- Desynchronization = confusion and rework
+
+### Red Flags
+
+**STOP immediately if you:**
+- ❌ Complete a story review without updating Jira
+- ❌ Add scenarios to docs but not Jira
+- ❌ Think "I'll update Jira later" (NO - NOW)
+
+### Remember
+
+**"If you touched a story document, you MUST touch the Jira story."**
+
+See `.cursorrules` section "Jira Synchronization - CRITICAL" for complete details.
 
 ---
 

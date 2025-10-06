@@ -33,6 +33,7 @@ Located in `prds/` directory:
 | **Roles_and_Personas.md** | Platform and tenant role definitions | ✅ Complete |
 | **Tech_Stack_Definition.md** | Official technology choices | ✅ Approved |
 | **Recommended_Tool_Stack.md** | Jira, GitHub, and tool recommendations | ✅ Complete |
+| **Infrastructure_Architecture.md** | Multi-region, multi-instance deployment strategy | ✅ Complete |
 
 ### 💼 Business & Consulting Materials
 
@@ -64,9 +65,10 @@ Located in `chatmodes/` directory:
 
 ### For Developers
 1. Read: **Tech_Stack_Definition.md**
-2. Read: Relevant service PRD (e.g., `PRD_UserService.md`)
-3. Review: Implementation sequence in `prds/Implementation_Sequence.md`
-4. Start: With infrastructure setup (ECS-7 stories)
+2. Read: **Infrastructure_Architecture.md** (multi-deployment strategy)
+3. Read: Relevant service PRD (e.g., `PRD_UserService.md`)
+4. Review: Implementation sequence in `prds/Implementation_Sequence.md`
+5. Start: With infrastructure setup (ECS-7 stories)
 
 ### For Stakeholders & Leadership
 1. Read: **Business_Value_Proposition.md**
@@ -134,6 +136,6 @@ This documentation represents real work on a demonstration project. If you're in
 
 ---
 
-**Last Updated:** October 4, 2025  
-**Documentation Version:** 1.1  
-**Project Status:** Active Development (Week 1)
+**Last Updated:** October 6, 2025  
+**Documentation Version:** 1.2 (added Infrastructure_Architecture.md)  
+**Project Status:** Active Development (Week 1 - Story Validation Phase)

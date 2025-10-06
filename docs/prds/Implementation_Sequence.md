@@ -36,6 +36,25 @@ graph TD
 
 ---
 
+## 0. Prerequisites (ECS-46)
+
+**Story**: ECS-46 - Prepare Azure Subscription, Budgets, and Policies  
+**Story Points**: 3  
+**Priority**: P0 (Must be completed before any other infrastructure work)
+
+Before any Terraform or infrastructure work, complete the following in the Azure tenant:
+
+- Create or select an Azure Subscription for ComplianceFlow (Pay-As-You-Go or Dev/Test if eligible)
+- Create Resource Groups (per environment): `rg-complianceflow-dev`, `rg-complianceflow-stg` (placeholder), `rg-complianceflow-prod` (placeholder), `rg-complianceflow-terraform`
+- Set Azure Budgets with 50/80/100% alerts on each RG/subscription
+- Enable Cost Anomaly alerts
+- Apply baseline Policies in dev to restrict premium SKUs and enforce tagging (`app`, `env`, `owner`, `costCenter`)
+- Configure Log Analytics caps/retention (dev lower, prod higher)
+- Create Service Principal for CI/CD and grant least-privilege roles (Reader on subscription, Contributor scoped to RGs)
+- Store service principal credentials in GitHub Secrets
+
+---
+
 ## 2. Epic Implementation Sequence
 
 ### Phase 1: Foundation (Week 1)
@@ -43,7 +62,7 @@ graph TD
 
 #### ECS-7: Infrastructure Setup
 - **Status**: TO DO
-- **Dependencies**: None (Azure subscription, GitHub repo already setup)
+- **Dependencies**: ECS-46 (Azure subscription preparation)
 - **Blocks**: ALL other epics
 - **Deliverables**:
   - Azure infrastructure (PostgreSQL, Redis, Kafka, Key Vault)

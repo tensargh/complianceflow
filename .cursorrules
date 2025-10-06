@@ -134,3 +134,94 @@ Track and document:
 - Quality metrics (test coverage, bug rates)
 - Developer satisfaction and velocity
 - Comparison to industry benchmarks
+
+---
+
+## Jira Synchronization - CRITICAL
+
+### Keep Jira as Source of Truth for Active Work
+
+**MANDATORY RULE:** Whenever you modify, review, or enhance a Jira story in documentation, you **MUST** immediately update the actual Jira story using the Atlassian MCP.
+
+### Synchronization Workflow
+
+**ALWAYS follow this sequence:**
+
+1. **Review/Update Documentation**
+   - Make changes to story files (e.g., `docs/prds/ECS-7_Infrastructure_Stories.md`)
+   - Update review documents (e.g., `docs/reviews/Story_Evaluations_ECS-18-44.md`)
+   
+2. **IMMEDIATELY Update Jira** (DO NOT SKIP THIS)
+   - Use `mcp_atlassian-official_editJiraIssue` to update the story
+   - Include ALL changes: description, acceptance criteria, DoD, technical notes
+   - Ensure formatting is Jira-compatible (Markdown)
+   
+3. **Add Tracking Comment**
+   - Use `mcp_atlassian-official_addCommentToJiraIssue` to document the update
+   - Note what changed, why, and when
+   - Reference review documents if applicable
+
+4. **Update TASKLIST.md**
+   - Mark story as "✅ JIRA STORY UPDATED"
+   - Track synchronization completion
+
+### What Must Be Synchronized
+
+**ALWAYS update Jira when you:**
+- ✅ Add new acceptance criteria scenarios
+- ✅ Enhance Definition of Done items
+- ✅ Update technical implementation notes
+- ✅ Modify story points or priorities
+- ✅ Add security/performance requirements
+- ✅ Change dependencies
+- ✅ Add multi-deployment architecture details
+- ✅ Incorporate review feedback
+- ✅ Fix inconsistencies or gaps
+
+### Why This Matters
+
+**Jira is what developers see and work from.**
+- Documentation files are reference/archive
+- Jira stories are the active working artifacts
+- Desynchronization causes confusion and rework
+- Developers need the latest, most accurate information
+
+### Atlassian MCP Usage
+
+**Update Story:**
+```
+mcp_atlassian-official_editJiraIssue
+- cloudId: https://timensor.atlassian.net
+- issueIdOrKey: ECS-XX
+- fields: { "description": "..." }
+```
+
+**Add Comment:**
+```
+mcp_atlassian-official_addCommentToJiraIssue
+- cloudId: https://timensor.atlassian.net
+- issueIdOrKey: ECS-XX
+- commentBody: "**Story Enhanced - [Date]**\n\n[Details]"
+```
+
+### Red Flags - When Synchronization Is Missing
+
+**STOP and synchronize if you:**
+- ❌ Complete a story review without updating Jira
+- ❌ Add new scenarios to documentation but not Jira
+- ❌ Enhance DoD in docs but not Jira
+- ❌ Note "Update Jira later" (NO - update NOW)
+- ❌ Batch updates for "efficiency" (NO - sync immediately per story)
+
+### Exception
+
+**ONLY skip Jira sync if:**
+- Story doesn't exist yet in Jira (create it first)
+- Changes are to non-story documents (architecture docs, guides, etc.)
+- Working on future epics not yet in Jira
+
+### Reminder
+
+**"If you touched a story document, you MUST touch the Jira story."**
+
+This is not optional. This is not a "nice to have." This is mandatory workflow discipline to maintain team velocity and prevent confusion.

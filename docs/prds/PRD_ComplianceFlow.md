@@ -226,7 +226,14 @@ A multi-tenant cloud-native SaaS platform that provides:
 - **Cloud-Native**: Designed for Azure deployment with Infrastructure as Code
 - **API-First**: RESTful APIs for all functionality
 - **Event-Driven**: Asynchronous processing for scalability
-- **Regional Deployment**: Support for EU and US regions with failover capabilities
+- **Multi-Region Deployment**: Support for multiple Azure regions (West Europe, East US, etc.)
+- **Multi-Instance Support**: Ability to deploy multiple isolated instances per region and environment
+- **Deployment Flexibility**: Infrastructure supports independent deployments like:
+  - `westeu-test-1`, `westeu-stg-1` (West Europe testing and staging)
+  - `westeu-prod-1`, `westeu-prod-2` (West Europe production with blue/green capability)
+  - `eastus-prod-1` (East US production for data residency)
+- **Environment Layers**: Three distinct environment tiers (test/dev, staging, production)
+- **CIDR Management**: Pre-allocated CIDR ranges for each deployment to enable VNet peering and avoid conflicts
 
 ### 5.2 Performance Requirements
 - **Response Time**: < 2 seconds for form loading and submission
